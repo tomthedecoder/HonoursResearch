@@ -23,41 +23,15 @@ if __name__ == "__main__":
         environment.mutation_chance = 0.05
     else:
         environment = Environment(target_signal=target_signal, pop_size=1, mutation_chance=0.05)
-
         num_nodes = 2
+        connectivity_array = [(1, 1), (1, 2), (2, 2)]
 
-        #connectivity_mask = [[1.0,0.0,0.0,1.0],
-        #                     [1.0,1.0,0.0,1.0],
-        #                     [0.0,1.0,1.0,1.0],
-        #                     [0.0,0.0,0.0,1.0]]
+        center_crossing = True
 
-        connectivity_mask = [[1.0, 1.0],
-                             [0, 1.0]]
-
-        #connectivity_mask = None
-
-        #connectivity_mask = [[0.0, 0.0, 1.0],
-        #                     [0.0, 0.0, 1.0],
-        #                     [1.0, 1.0, 1.0]]
-
-        #individuals = [1, 2, 3]
-
-        #connection_matrix = [[0.0, 0.0, 1.0, 0.0],
-        #                     [0.0, 0.0, 1.0, 0.0],
-        #                     [1.0, 1.0, 1.0, 1.0],
-        #                     [0.0, 0.0, 1.0, 0.0]]
-
-        #connection_matrix = [[0.0, 0.0, 0.0, 1.0, 0.0],
-        #                     [0.0, 0.0, 0.0, 1.0, 0.0],
-        #                     [0.0, 0.0, 0.0, 1.0, 0.0],
-        #                     [1.0, 1.0, 1.0, 1.0, 1.0],
-        #                     [0.0, 0.0, 0.0, 1.0, 0.0]]
-
-        environment.fill_individuals(num_nodes, connection_matrix=None)
+        environment.fill_individuals(num_nodes=num_nodes, connection_array=connectivity_array, center_crossing=center_crossing)
 
     final_t = np.ceil(12*np.pi)
     iterations = 0
-    termination_threshold = np.Inf
 
     errors = []
     generations = []
@@ -73,14 +47,6 @@ if __name__ == "__main__":
 
         errors.append(1 - environment.individuals[-1].simpsons_fitness(target_signal=target_signal, final_t=final_t))
         generations.append(i+1)
-
-        """# if the worst individual is sufficiently bad, replace it with a new randomly generated one
-        weakest_individual = environment.individuals[0]
-        old_connection_matrix = weakest_individual.ctrnn.connectivity_mask
-        fitness = weakest_individual.fitness(target_signal, final_t, fitness_type="simpsons")
-        if fitness >= termination_threshold or fitness == np.nan:
-            new_genome = environment.make_genome(weakest_individual.num_nodes)
-            environment.individuals[0] = Individual(new_genome, weakest_individual.num_nodes, old_connection_matrix)"""
 
     environment.rank(final_t, "simpsons")
     best_individual = environment.individuals[-1]

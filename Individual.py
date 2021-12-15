@@ -8,18 +8,15 @@ def I(t):
 
 
 class Individual:
-    def __init__(self, genome, num_nodes, connection_matrix=None):
+    def __init__(self, genome, num_nodes, connection_array=None, num_weights=None):
         """ An individual of some environment"""
 
         self.genome = genome
         self.num_nodes = num_nodes
-        self.ctrnn = CTRNN(num_nodes=self.num_nodes, genome=self.genome, connectivity_matrix=connection_matrix)
+        self.ctrnn = CTRNN(num_nodes=self.num_nodes, genome=self.genome, connection_array=connection_array, num_weights=num_weights)
 
         # input to each node of this individual
         self.input_signal = lambda t: I(t)
-        #self.input_signal = lambda t: np.exp(-0.5 * t) * np.cos(t)
-
-        # self.input_signal
 
         # the linear rank of this individual, relative to fitness of other individuals. Between 0 and 2.
         self.rank_score = 0
@@ -112,7 +109,7 @@ class Individual:
     def get_rank(self):
         return self.rank_score
 
-    def evaluate(self, final_t, DT=0.01, reset=True):
+    def evaluate(self, final_t):
         """ Return evaluation starting at a single time step."""
 
         if self.last_time == final_t:
@@ -123,10 +120,11 @@ class Individual:
             for node in range(self.num_nodes):
                 self.ctrnn.set_input(node, self.input_signal(self.last_time))
 
-            self.ctrnn.update(reset, DT)
-            self.last_time += DT
+            self.ctrnn.update()
+            self.last_time += self.ctrnn.step_size
 
-        if not reset:
+        if not self.ctrnn.save:
+            self.ctrnn.node_values = [0.0 for _ in range(self.num_nodes)]
             self.last_time = 0
 
         # assuming that the last node is the only output node

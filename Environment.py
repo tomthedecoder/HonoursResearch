@@ -25,23 +25,34 @@ class Environment:
 
         self.target_signal = target_signal
 
-    def fill_individuals(self, num_nodes, connection_matrix=None, individuals=None, center_crossing=False):
+    def fill_individuals(self, num_nodes, connection_array=None, individuals=None, center_crossing=False):
         """ Initialise self.individuals using uniform distributions. If a individual array is provided, simply assign
             this to self.individuals"""
 
         if individuals is None:
+
+            # if no connection array is passed in, put a connection between all nodes
+            if connection_array is None:
+                connection_array = []
+                for idx in range(num_nodes):
+                    for idy in range(num_nodes):
+                        connection_array.append((idx + 1, idy + 1))
+
             self.individuals = []
             for _ in range(self.pop_size):
                 genome = self.make_genome(num_nodes)
-                self.individuals.append(Individual(genome, num_nodes, connection_matrix))
+                self.individuals.append(Individual(genome, num_nodes, connection_array))
         else:
             self.individuals = individuals
 
     def make_genome(self, num_nodes):
         """ Generates a new genome from the environment's specifications"""
+
         weight_matrix = np.random.uniform(self.weight_low, self.weight_high, size=(num_nodes, num_nodes))
         taus = np.random.uniform(self.tau_low, self.tau_high, size=num_nodes)
-        biases = np.random.uniform(self.bias_low, self.bias_high, size=num_nodes)
+
+        if not self.center_crossing:
+            biases = np.random.uniform(self.bias_low, self.bias_high, size=num_nodes)
 
         # no zero taus allowed, just make these taus very small
         for idx, t in enumerate(taus):
@@ -49,7 +60,8 @@ class Environment:
                 taus[idx] = 0.01
 
         genome = np.append(weight_matrix, taus)
-        genome = np.append(genome, biases)
+        if not self.center_crossing:
+            genome = np.append(genome, biases)
 
         return genome
 
