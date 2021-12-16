@@ -4,7 +4,7 @@ import inspect
 
 
 class Environment:
-    def __init__(self, target_signal, pop_size=1000, weight_high=5, weight_low=-5, tau_low=0, tau_high=5, bias_low=-2, bias_high=2, center_crossing=True, mutation_chance=0.01):
+    def __init__(self, target_signal, pop_size=1000, weight_high=5, weight_low=-5, tau_low=0, tau_high=5, bias_low=-2, bias_high=2, center_crossing=False, mutation_chance=0.01):
         """ A container, which holds individuals of the environment, methods for evolution and parameters of the
             experiment initialises individuals along some Gaussian distribution or takes a pre-existing array of
             individuals"""
@@ -25,12 +25,11 @@ class Environment:
 
         self.target_signal = target_signal
 
-    def fill_individuals(self, num_nodes, connection_array=None, individuals=None, center_crossing=False):
+    def fill_individuals(self, num_nodes, connection_array=None, individuals=None):
         """ Initialise self.individuals using uniform distributions. If a individual array is provided, simply assign
             this to self.individuals"""
 
         if individuals is None:
-
             # if no connection array is passed in, put a connection between all nodes
             if connection_array is None:
                 connection_array = []
@@ -41,7 +40,8 @@ class Environment:
             self.individuals = []
             for _ in range(self.pop_size):
                 genome = self.make_genome(num_nodes)
-                self.individuals.append(Individual(genome, num_nodes, connection_array))
+                self.individuals.append(Individual(genome, num_nodes, center_crossing=self.center_crossing,
+                                                    connection_array=connection_array))
         else:
             self.individuals = individuals
 
@@ -159,18 +159,19 @@ class Environment:
         contents += signal_as_string[signal_as_string.find(" ", 2):].strip() + '\n'
 
         # add the connection matrix to write string
-        connection_matrix = self.individuals[0].ctrnn.connectivity_matrix
+        weights = self.individuals[0].ctrnn.weights
 
-        for row in connection_matrix:
-            for val in row:
-                contents += str(val) + " "
-            contents += "\n"
+        for weight in weights:
+            i = weight.get_i()
+            j = weight.get_j()
+            contents += "{},{} ".format(i, j)
+        contents += '\n'
 
         # add genomes to write string
         for idx, individual in enumerate(self.individuals):
             str_genome = ""
-            for g in individual.genome:
-                str_genome += str(g) + " "
+            for idx, gene in enumerate(individual.genome):
+                str_genome += str(gene) + " "
             contents += str_genome + "\n"
 
         # write string to file
@@ -189,18 +190,14 @@ class Environment:
         num_nodes = int(contents[1])
         true_signal = eval(contents[2][contents[2].find(" ", 2)+2:].strip())
 
-        # retrieve connection matrix
-        connection_matrix = []
-        for rowid in range(num_nodes):
-            row = []
-            num = ""
-            for char in contents[3 + rowid]:
-                if char == " ":
-                    row.append(float(num))
-                    num = ""
-                    continue
-                num += char
-            connection_matrix.append(row)
+        # line which contains connection information
+        line = contents[3].split()
+        connection_array = []
+        for item in line:
+            p = int(item.find(","))
+            i = item[0:p]
+            j = item[p:]
+            connection_array.append((i, j))
 
         # get genomes
         individuals = []
@@ -213,10 +210,10 @@ class Environment:
                     num = ""
                     continue
                 num += char
-            individuals.append(Individual(genome, num_nodes, connection_matrix))
+            individuals.append(Individual(genome=genome, num_nodes=num_nodes, connection_array=connection_array, center_crossing=False))
 
         new_environment = Environment(true_signal, pop_size=pop_size)
-        new_environment.fill_individuals(num_nodes, connection_matrix=connection_matrix, individuals=individuals)
+        new_environment.fill_individuals(num_nodes, connection_array=connection_array, individuals=individuals)
 
         return new_environment
 

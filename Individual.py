@@ -1,6 +1,5 @@
 from CTRNN import CTRNN
 import numpy as np
-import inspect
 
 
 def I(t):
@@ -8,12 +7,13 @@ def I(t):
 
 
 class Individual:
-    def __init__(self, genome, num_nodes, connection_array=None, num_weights=None):
+    def __init__(self, genome, num_nodes, center_crossing, connection_array=None, num_weights=None):
         """ An individual of some environment"""
 
         self.genome = genome
         self.num_nodes = num_nodes
-        self.ctrnn = CTRNN(num_nodes=self.num_nodes, genome=self.genome, connection_array=connection_array, num_weights=num_weights)
+        self.ctrnn = CTRNN(num_nodes=self.num_nodes, genome=self.genome, connection_array=connection_array,
+                           num_weights=num_weights, center_crossing=center_crossing)
 
         # input to each node of this individual
         self.input_signal = lambda t: I(t)
@@ -38,9 +38,7 @@ class Individual:
             pos = np.random.randint(0, len(self.genome))
             new_genome[pos] = other_individual.genome[pos]
 
-        # assume the connection matrix is consistent over individuals
-        connection_matrix = self.ctrnn.connectivity_matrix
-        new_individual = Individual(new_genome, self.num_nodes, connection_matrix=connection_matrix)
+        new_individual = Individual(new_genome, self.num_nodes)
 
         return new_individual
 
@@ -94,14 +92,16 @@ class Individual:
         t = []
         y = []
 
-        self.evaluate(final_t=final_t, DT=step_size, reset=False)
-        E = self.ctrnn.history[-1]
+        self.ctrnn.save = True
+        self.evaluate(final_t=final_t)
+        E = self.ctrnn.node_history[-1]
+        self.ctrnn.save = False
 
         for idx in range(num_samples):
             t.append(idx * step_size)
             y.append(abs(E[idx] - target_signal(t[-1])))
 
-        return np.float(sci.simpson(y=y, x=t))
+        return np.float(sci.simps(y=y, x=t))
 
     def set_rank(self, new_rank):
         self.rank_score = new_rank

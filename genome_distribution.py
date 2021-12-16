@@ -8,13 +8,14 @@ def genome_distribution(filename="state_file"):
     with open(filename, "r") as read_file:
         contents = read_file.readlines()
 
+    pop_size = int(contents[0])
     num_nodes = int(contents[1])
 
     weight_counts = []
     biases_counts = []
     taus_counts = []
 
-    for ln, genome in enumerate(contents[3 + num_nodes:]):
+    for ln, genome in enumerate(contents[4:]):
         num = ""
         numbers_so_far = 0
         for idx, char in enumerate(genome):

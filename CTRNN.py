@@ -23,6 +23,9 @@ class Weight:
     def get_j(self):
         return self.j
 
+    def __str__(self):
+        return "({},{},{})".format(self.i, self.j, self.value)
+
 
 class CTRNN(object):
     def __init__(self, num_nodes, genome, num_weights=None, connection_array=None, center_crossing=False):
@@ -33,13 +36,13 @@ class CTRNN(object):
 
         # covers every case in order to initialse the number of weights and therefore the weight array
         if connection_array is None:
-            self.num_weights = self.num_nodes ** 2 + 2 * self.num_nodes
+            self.num_weights = self.num_nodes ** 2
         elif num_weights is None:
             self.num_weights = len(connection_array)
         else:
             self.num_weights = num_weights
 
-        # initialse weights
+        # initialase weights
         self.weights = []
         try:
             for idx, weight in enumerate(self.genome[0:self.num_weights]):
@@ -47,22 +50,20 @@ class CTRNN(object):
                 self.weights.append(Weight(i, j, weight))
         except IndexError:
             print("Connection array's dimension must be equal to the number of weights")
+            return
 
-        self.taus = self.genome[self.num_weights:self.num_weights + self.num_nodes]
+        self.taus = self.genome[self.num_weights + 1:self.num_weights + self.num_nodes + 1]
 
         # if instructed to make center crossing weights, disregarded genome normally containing weights
         if center_crossing:
             self.biases = [0.0 for _ in range(self.num_nodes)]
-
+            print(self.biases)
             for weight in self.weights:
                 bias_i = weight.get_i()
                 j = weight.get_j()
-                self.biases[j][bias_i] += weight.value
-
-            for idx in range(self.num_nodes):
-                self.biases[idx] = self.biases[idx] / 2
+                self.biases[j][bias_i] += weight.value / 2
         else:
-            self.biases = self.genome[self.num_weights + self.num_nodes:]
+            self.biases = self.genome[self.num_weights + self.num_nodes + 1:]
 
         # there are self.num_nodes taus and biases
         self.num_genes = self.num_weights + 2 * self.num_nodes
@@ -105,11 +106,10 @@ class CTRNN(object):
         """ Recalculates each derivative term"""
 
         sigmoid_terms = np.array([0.0 for _ in range(self.num_nodes)])
-
         # calculate the weight * sigmoid terms for each node
         for weight in self.weights:
-            from_node = weight.get_i()
-            to_node = weight.get_j()
+            from_node = weight.get_i() - 1
+            to_node = weight.get_j() - 1
             sigmoid_terms[from_node] += weight.value * sigmoid(self.node_values[to_node] + self.biases[to_node])
 
         self.derivatives = (-self.node_values + sigmoid_terms + self.inputs) / self.taus
@@ -128,14 +128,25 @@ class CTRNN(object):
                 self.node_history[index].append(self.node_values[index])
 
 
-test = True
+test = False
 if test:
     num_weights = 1
     num_nodes = 1
     genome = [1, 1, 1]
+    connection_array = [(1, 1)]
 
-    ctrnn = CTRNN(num_nodes, num_weights, genome)
+    ctrnn = CTRNN(num_nodes=num_nodes, num_weights=num_weights, genome=genome, connection_array=connection_array)
+    ctrnn.save = False
     ctrnn.calculate_derivative()
     ctrnn.update()
+    ctrnn.calculate_derivative()
+    ctrnn.update()
+
+    print(ctrnn.derivatives)
+    print(ctrnn.node_values)
+    print(ctrnn.node_history)
+
+    while True:
+        continue
 
 

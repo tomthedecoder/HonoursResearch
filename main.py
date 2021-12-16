@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from os import path
 from sys import stdout
-from scipy.fft import fft, fftfreq
-from plot_all_neurons import plot_all_neurons
+#from scipy.fft import fft, fftfreq
+#from plot_all_neurons import plot_all_neurons
 from genome_distribution import genome_distribution
 
 
@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
         center_crossing = True
 
-        environment.fill_individuals(num_nodes=num_nodes, connection_array=connectivity_array, center_crossing=center_crossing)
+        environment.fill_individuals(num_nodes=num_nodes, connection_array=connectivity_array)
 
     final_t = np.ceil(12*np.pi)
     iterations = 0
@@ -53,20 +53,24 @@ if __name__ == "__main__":
 
     times = []
     y_target = []
-    DT = 0.001
+    DT = 0.01
 
-    best_individual.last_time = DT
+    best_individual.last_time = 0
     best_individual.ctrnn.node_values = np.array([0.0 for _ in range(best_individual.num_nodes)])
     best_individual.ctrnn.history = [[] for _ in range(best_individual.num_nodes)]
-    best_individual.evaluate(reset=False, final_t=final_t, DT=DT)
+    best_individual.save = True
+    best_individual.ctrnn.step_size = 0.01
+    best_individual.evaluate(final_t=final_t)
 
     print(best_individual.genome)
 
-    y_output = best_individual.ctrnn.history[-1]
+    y_output = best_individual.ctrnn.node_history[-1]
 
-    for idx in range(int(final_t/DT) - 1):
+    for idx in range(int(final_t/DT)):
         times.append(DT * idx)
         y_target.append(environment.target_signal(times[-1]))
+
+    print(len(times), len(y_output), len(y_target))
 
     plt.figure()
     plt.grid()
@@ -88,7 +92,7 @@ if __name__ == "__main__":
     N = 800
     # spacing between points
     T = 1.0/N
-    fourier_of_output = fft(y_output)
+    """fourier_of_output = fft(y_output)
     fourier_of_target = fft(y_target)
     tf = fftfreq(N, T)[:N // 2]
 
@@ -100,7 +104,9 @@ if __name__ == "__main__":
     plt.grid()
 
     # calls plt.show() for all the above plots
-    plot_all_neurons(best_individual, final_t=final_t, step_size=DT)
+    plot_all_neurons(best_individual, final_t=final_t, step_size=DT)"""
+
+    plt.show()
 
     environment.save_state()
 
