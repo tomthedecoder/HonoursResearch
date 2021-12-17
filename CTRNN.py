@@ -40,7 +40,7 @@ class CTRNN(object):
         else:
             self.num_weights = num_weights
 
-        # initialase weights
+        # initialiase weights
         self.weights = []
         try:
             for idx, weight in enumerate(self.genome[0:self.num_weights]):
@@ -50,16 +50,7 @@ class CTRNN(object):
             print("Connection array's dimension must be equal to the number of weights")
 
         self.taus = self.genome[self.num_weights:self.num_weights + self.num_nodes]
-
-        # if instructed to make center crossing weights, disregarded genome normally containing weights
-        if center_crossing:
-            self.biases = [0.0 for _ in range(self.num_nodes)]
-            for weight in self.weights:
-                bias_i = weight.get_i()
-                j = weight.get_j()
-                self.biases[j][bias_i] += weight.value / 2
-        else:
-            self.biases = self.genome[self.num_weights + self.num_nodes:]
+        self.biases = self.genome[self.num_weights + self.num_nodes:]
 
         # there are self.num_nodes taus and biases
         self.num_genes = self.num_weights + 2 * self.num_nodes

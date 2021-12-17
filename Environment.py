@@ -25,6 +25,9 @@ class Environment:
 
         self.target_signal = target_signal
 
+        # contains (i,j) tuples if there exists an edge from i to j
+        self.connection_array = []
+
     def fill_individuals(self, num_nodes, connection_array=None, individuals=None):
         """ Initialise self.individuals using uniform distributions. If a individual array is provided, simply assign
             this to self.individuals"""
@@ -42,27 +45,34 @@ class Environment:
                     for idy in range(num_nodes):
                         connection_array.append((idx + 1, idy + 1))
 
+            self.connection_array = connection_array
             self.individuals = []
             for _ in range(self.pop_size):
                 genome = self.make_genome(num_nodes, num_weights)
                 self.individuals.append(Individual(genome, num_nodes,
-                                                   center_crossing=self.center_crossing, connection_array=connection_array))
+                                                   center_crossing=self.center_crossing, connection_array=self.connection_array))
         else:
             self.individuals = individuals
 
     def make_genome(self, num_nodes, num_weights):
         """ Generates a new genome from the environment's specifications"""
-        weight_matrix = np.random.uniform(self.weight_low, self.weight_high, size=num_weights)
 
+        weights = np.random.uniform(self.weight_low, self.weight_high, size=num_weights)
         taus = np.random.uniform(self.tau_low+0.01, self.tau_high, size=num_nodes)
 
         # create center crossing biases here if called for
         if self.center_crossing:
-            pass
+            # this procedure is possible because the weight in weights[idx]
+            # corresponds to the edge in connection_array[idx]
+            biases = np.array([0.0 for _ in range(num_nodes)])
+            for idx in range(num_weights):
+                i, j = self.connection_array[idx]
+                i -= 1
+                biases[i] += weights[idx] / 2
         else:
             biases = np.random.uniform(self.bias_low, self.bias_high, size=num_nodes)
 
-        genome = np.append(weight_matrix, taus)
+        genome = np.append(weights, taus)
         genome = np.append(genome, biases)
 
         return genome

@@ -22,12 +22,10 @@ if __name__ == "__main__":
         environment.target_signal = target_signal
         environment.mutation_chance = 0.05
     else:
-        environment = Environment(target_signal=target_signal, pop_size=1, mutation_chance=0.05)
+        environment = Environment(target_signal=target_signal, pop_size=1, mutation_chance=0.05, center_crossing=True)
         num_nodes = 2
-        connectivity_array = [(1, 1), (1, 2), (2, 2)]
-        #connectivity_array = None
-
-        center_crossing = True
+        #connectivity_array = [(1, 1), (1, 2), (2, 2)]
+        connectivity_array = None
 
         environment.fill_individuals(num_nodes=num_nodes, connection_array=connectivity_array)
 
