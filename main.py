@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from os import path
 from sys import stdout
 #from scipy.fft import fft, fftfreq
-#from plot_all_neurons import plot_all_neurons
+from plot_all_neurons import plot_all_neurons
 from genome_distribution import genome_distribution
 
 
@@ -25,6 +25,7 @@ if __name__ == "__main__":
         environment = Environment(target_signal=target_signal, pop_size=1, mutation_chance=0.05)
         num_nodes = 2
         connectivity_array = [(1, 1), (1, 2), (2, 2)]
+        #connectivity_array = None
 
         center_crossing = True
 
@@ -50,7 +51,6 @@ if __name__ == "__main__":
 
     environment.rank(final_t, "simpsons")
     best_individual = environment.individuals[-1]
-
     times = []
     y_target = []
     DT = 0.01
@@ -69,8 +69,6 @@ if __name__ == "__main__":
     for idx in range(int(final_t/DT)):
         times.append(DT * idx)
         y_target.append(environment.target_signal(times[-1]))
-
-    print(len(times), len(y_output), len(y_target))
 
     plt.figure()
     plt.grid()
@@ -92,6 +90,7 @@ if __name__ == "__main__":
     N = 800
     # spacing between points
     T = 1.0/N
+
     """fourier_of_output = fft(y_output)
     fourier_of_target = fft(y_target)
     tf = fftfreq(N, T)[:N // 2]
@@ -101,12 +100,10 @@ if __name__ == "__main__":
     plt.plot(tf, 1.0 / N * np.abs(fourier_of_output[0:N // 2]), 'g')
     plt.plot(tf, 1.0 / N * np.abs(fourier_of_target[0:N // 2]), 'b')
     plt.legend(["Output", "Target"])
-    plt.grid()
+    plt.grid()"""
 
     # calls plt.show() for all the above plots
-    plot_all_neurons(best_individual, final_t=final_t, step_size=DT)"""
-
-    plt.show()
+    plot_all_neurons(best_individual, final_t=final_t, step_size=DT)
 
     environment.save_state()
 

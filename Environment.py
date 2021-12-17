@@ -29,6 +29,11 @@ class Environment:
         """ Initialise self.individuals using uniform distributions. If a individual array is provided, simply assign
             this to self.individuals"""
 
+        if connection_array is None:
+            num_weights = num_nodes ** 2
+        else:
+            num_weights = len(connection_array)
+
         if individuals is None:
             # if no connection array is passed in, put a connection between all nodes
             if connection_array is None:
@@ -39,29 +44,26 @@ class Environment:
 
             self.individuals = []
             for _ in range(self.pop_size):
-                genome = self.make_genome(num_nodes)
-                self.individuals.append(Individual(genome, num_nodes, center_crossing=self.center_crossing,
-                                                    connection_array=connection_array))
+                genome = self.make_genome(num_nodes, num_weights)
+                self.individuals.append(Individual(genome, num_nodes,
+                                                   center_crossing=self.center_crossing, connection_array=connection_array))
         else:
             self.individuals = individuals
 
-    def make_genome(self, num_nodes):
+    def make_genome(self, num_nodes, num_weights):
         """ Generates a new genome from the environment's specifications"""
+        weight_matrix = np.random.uniform(self.weight_low, self.weight_high, size=num_weights)
 
-        weight_matrix = np.random.uniform(self.weight_low, self.weight_high, size=(num_nodes, num_nodes))
-        taus = np.random.uniform(self.tau_low, self.tau_high, size=num_nodes)
+        taus = np.random.uniform(self.tau_low+0.01, self.tau_high, size=num_nodes)
 
-        if not self.center_crossing:
+        # create center crossing biases here if called for
+        if self.center_crossing:
+            pass
+        else:
             biases = np.random.uniform(self.bias_low, self.bias_high, size=num_nodes)
 
-        # no zero taus allowed, just make these taus very small
-        for idx, t in enumerate(taus):
-            if t == 0:
-                taus[idx] = 0.01
-
         genome = np.append(weight_matrix, taus)
-        if not self.center_crossing:
-            genome = np.append(genome, biases)
+        genome = np.append(genome, biases)
 
         return genome
 
@@ -91,7 +93,7 @@ class Environment:
         step_size = 1/self.pop_size
 
         # sort individuals
-        sort_key = lambda i: i.fitness(self.target_signal, final_t, fitness_type=fitness_type)
+        sort_key = lambda i: i.fitness(self.target_signal, fitness_type, final_t)
         self.individuals = sorted(self.individuals, key=sort_key, reverse=True)
 
         # assign rank

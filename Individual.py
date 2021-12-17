@@ -21,6 +21,12 @@ class Individual:
         # the linear rank of this individual, relative to fitness of other individuals. Between 0 and 2.
         self.rank_score = 0
 
+        # last computed fitness value
+        self.last_fitness = 0
+
+        # determines if the fitness value still valid
+        self.fitness_valid = False
+
         # times of evaluation
         self.last_time = 0
 
@@ -38,11 +44,12 @@ class Individual:
             pos = np.random.randint(0, len(self.genome))
             new_genome[pos] = other_individual.genome[pos]
 
+        # fitness valid is False by default
         new_individual = Individual(new_genome, self.num_nodes)
 
         return new_individual
 
-    def microbial_cross_over(self, weakest_individual, change_ratio=0.5):
+    def microbial_cross_over(self, weakest_individual, change_ratio):
         """ Performs microbial cross-over; some fraction of the weakest individual's genome is replaced by one of the
             stronger individual's genome"""
 
@@ -53,14 +60,26 @@ class Individual:
             pos = np.random.randint(0, length)
             weakest_individual.genome[pos] = self.genome[pos]
 
+        weakest_individual.fitness_valid = False
         return weakest_individual
 
-    def fitness(self, target_signal, final_t, fitness_type):
+    def cross_over(self, individual, type="microbial", *args):
+        """ Hook method for cross-over"""
+
+        if type == "microbial":
+            return self.microbial_cross_over(individual, args[0])
+        elif type == "normal":
+            return self.normal_cross_over(individual)
+
+    def fitness(self, target_signal, fitness_type, *args):
         """ Hook method for the fitness of a individual"""
 
         self.ctrnn.node_values = np.array([0.0 for _ in range(self.num_nodes)])
+        final_t = args[0]
 
-        if fitness_type == "sample":
+        if self.fitness_valid:
+            return self.last_fitness
+        elif fitness_type == "sample":
             return self.sample_fitness(target_signal, final_t)
         elif fitness_type == "simpsons":
             return self.simpsons_fitness(target_signal, final_t)
@@ -73,9 +92,14 @@ class Individual:
         step_size = final_t / num_samples
         fitness = 0
 
+        # reset CTRNN
+        self.ctrnn.save = True
+        E = self.evaluate(final_t=final_t)
+        self.ctrnn.save = False
+
         for idx in range(num_samples):
             sample_t = step_size * idx
-            fitness += abs(target_signal(sample_t) - self.evaluate(sample_t)[0])
+            fitness += abs(target_signal(sample_t) - E[idx])
 
         return (1/num_samples) * fitness
 
@@ -85,13 +109,14 @@ class Individual:
 
         import scipy.integrate as sci
 
-        self.ys = np.array([0.0 for _ in range(self.num_nodes)])
-        self.last_time = 0
         step_size = 0.01
         num_samples = int(final_t / step_size)
         t = []
         y = []
 
+        # reset CTRNN
+        self.ys = np.array([0.0 for _ in range(self.num_nodes)])
+        self.last_time = 0
         self.ctrnn.save = True
         self.evaluate(final_t=final_t)
         E = self.ctrnn.node_history[-1]
@@ -101,7 +126,9 @@ class Individual:
             t.append(idx * step_size)
             y.append(abs(E[idx] - target_signal(t[-1])))
 
-        return np.float(sci.simps(y=y, x=t))
+        self.last_fitness = np.float(sci.simps(y=y, x=t))
+        self.fitness_valid = True
+        return self.last_fitness
 
     def set_rank(self, new_rank):
         self.rank_score = new_rank
@@ -112,14 +139,16 @@ class Individual:
     def evaluate(self, final_t):
         """ Return evaluation starting at a single time step."""
 
+        self.ctrnn.reset()
+
         if self.last_time == final_t:
             return self.ys[-1]
+        if self.last_time > final_t:
+            raise ValueError("current time greater than final time")
 
-        while self.last_time < final_t:
-
-            for node in range(self.num_nodes):
-                self.ctrnn.set_input(node, self.input_signal(self.last_time))
-
+        num_steps = abs(final_t - self.last_time) / self.ctrnn.step_size
+        for _ in range(int(num_steps)):
+            self.ctrnn.set_forcing(self.input_signal(self.last_time))
             self.ctrnn.update()
             self.last_time += self.ctrnn.step_size
 
