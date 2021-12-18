@@ -115,7 +115,7 @@ class Individual:
         y = []
 
         # reset CTRNN
-        self.ys = np.array([0.0 for _ in range(self.num_nodes)])
+        self.ctrnn.reset()
         self.last_time = 0
         self.ctrnn.save = True
         self.evaluate(final_t=final_t)
@@ -140,9 +140,10 @@ class Individual:
         """ Return evaluation starting at a single time step."""
 
         self.ctrnn.reset()
+        self.last_time = 0
 
         if self.last_time == final_t:
-            return self.ys[-1]
+            return self.ctrnn.node_values[-1]
         if self.last_time > final_t:
             raise ValueError("current time greater than final time")
 

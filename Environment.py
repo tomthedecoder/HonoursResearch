@@ -192,7 +192,7 @@ class Environment:
 
     @staticmethod
     def load_environment(filename="state_file"):
-        """ Returns a environment from a saved state"""
+        """ Returns an environment from a saved state"""
 
         # read file contents
         with open(filename) as read_file:
@@ -207,8 +207,8 @@ class Environment:
         connection_array = []
         for item in line:
             p = int(item.find(","))
-            i = item[0:p]
-            j = item[p:]
+            i = int(item[0:p])
+            j = int(item[p+1:].strip())
             connection_array.append((i, j))
 
         # get genomes

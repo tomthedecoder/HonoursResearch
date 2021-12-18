@@ -12,17 +12,17 @@ if __name__ == "__main__":
     """ Set up and run"""
 
     # signal to interpolate
-    target_signal = lambda t: np.exp(-0.05 * t) * np.cos(t)
-    load = False
+    target_signal = lambda t: np.sin(t)
+    load = True
     if path.exists("state_file") and load:
         environment = Environment.load_environment("state_file")
-        for individual in environment.individuals:
-            print(individual.fitness(target_signal, fitness_type="simpsons", final_t=np.ceil(12*np.pi)), individual.genome)
-        print()
+        """for individual in environment.individuals:
+            print(individual.fitness(target_signal, "simpsons", 10))
+        print()"""
         environment.target_signal = target_signal
         environment.mutation_chance = 0.05
     else:
-        environment = Environment(target_signal=target_signal, pop_size=1, mutation_chance=0.05, center_crossing=True)
+        environment = Environment(target_signal=target_signal, pop_size=100, mutation_chance=0.05, center_crossing=True)
         num_nodes = 2
         #connectivity_array = [(1, 1), (1, 2), (2, 2)]
         connectivity_array = None
@@ -53,11 +53,8 @@ if __name__ == "__main__":
     y_target = []
     DT = 0.01
 
-    best_individual.last_time = 0
-    best_individual.ctrnn.node_values = np.array([0.0 for _ in range(best_individual.num_nodes)])
-    best_individual.ctrnn.history = [[] for _ in range(best_individual.num_nodes)]
     best_individual.save = True
-    best_individual.ctrnn.step_size = 0.01
+    best_individual.ctrnn.step_size = DT
     best_individual.evaluate(final_t=final_t)
 
     print(best_individual.genome)
