@@ -10,10 +10,8 @@ def plot_all_neurons(individual, final_t=10, step_size=0.01):
         raise ValueError("CTRNN must have at least one node")
 
     # reset ctrnn
-    individual.last_time = 0
-    individual.ctrnn.node_values = np.array([0.0 for _ in range(individual.num_nodes)])
-    individual.ctrnn.history = [[] for _ in range(individual.num_nodes)]
-    individual.save = True
+    individual.ctrnn.reset(True)
+    individual.ctrnn.save = True
     individual.ctrnn.step_size = step_size
 
     individual.evaluate(final_t=final_t)

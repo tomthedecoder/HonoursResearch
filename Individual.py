@@ -45,7 +45,7 @@ class Individual:
             new_genome[pos] = other_individual.genome[pos]
 
         # fitness valid is False by default
-        new_individual = Individual(new_genome, self.num_nodes)
+        new_individual = Individual(new_genome, self.num_nodes, False)
 
         return new_individual
 
@@ -147,15 +147,11 @@ class Individual:
         if self.last_time > final_t:
             raise ValueError("current time greater than final time")
 
-        num_steps = abs(final_t - self.last_time) / self.ctrnn.step_size
+        num_steps = abs(final_t - self.last_time) // self.ctrnn.step_size
         for _ in range(int(num_steps)):
             self.ctrnn.set_forcing(self.input_signal(self.last_time))
             self.ctrnn.update()
             self.last_time += self.ctrnn.step_size
-
-        if not self.ctrnn.save:
-            self.ctrnn.node_values = [0.0 for _ in range(self.num_nodes)]
-            self.last_time = 0
 
         # assuming that the last node is the only output node
         return self.ctrnn.node_values[-1]
