@@ -1,5 +1,5 @@
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 from scipy.integrate import solve_ivp
 from scipy.integrate import RK45
@@ -72,20 +72,12 @@ solver1 = solve_ivp(Dy, [0, 30], [0], args=[1, 5, 5], max_step=0.01, dense_outpu
 #solver2 = solve_ivp(Dy, [0, 30], [1], args=[1, 1, 0], max_step=0.01, dense_output=True)
 
 y0 = [0, 0]
-W = [[1, -1],
-     [1, 1]]
-B = [-2.75, -1.75]
-T = [1, 1]
+W = [[1.54881838, 2.78710795],
+     [0.0930542, -4.34517701]]
+B = [2.16796316, -2.12606141]
+T = [2.42980896, 0.98990346]
 
 #yh, th = eval(y=20, t=100)
-
-#sol = odeint(system, y0, t, args=(W, B, T))
-
-genome = [1.0, 0.1, 1.0]
-connection_matrix = [1.0]
-individual = Individual(genome, num_nodes=1, connection_matrix=connection_matrix)
-final_t = np.ceil(12*np.pi)
-#individual.evaluate(final_t, DT=0.01, )
 
 target_signal = lambda t: np.sin(t)
 times = []
@@ -93,6 +85,26 @@ y = []
 for idx in range(int(30/0.01)):
     times.append(idx * 0.01)
     y.append(target_signal(times[-1]))
+
+sol = odeint(system, y0, times, args=(W, B, T))
+
+plt.figure()
+plt.plot(sol[:, 1], sol[:, 0], 'b', label='y(t)')
+plt.title("Two Neuron")
+plt.legend(loc='best')
+plt.xlabel('y1')
+plt.ylabel('y2')
+plt.grid()
+
+plt.figure()
+plt.plot(times, sol[:, 1])
+plt.plot(times, y)
+plt.title("Last Neuron Output")
+plt.xlabel("time(t)")
+plt.ylabel("output(y)")
+plt.grid()
+
+plt.show()
 
 
 """plt.figure()
@@ -110,14 +122,6 @@ plt.title("Two Neuron")
 plt.legend(loc='best')
 plt.xlabel('t')
 plt.ylabel('y')
-plt.grid()
-
-plt.figure()
-plt.plot(sol[:, 1], sol[:, 0], 'b', label='y(t)')
-plt.title("Two Neuron")
-plt.legend(loc='best')
-plt.xlabel('y1')
-plt.ylabel('y2')
 plt.grid()
 
 plt.figure()

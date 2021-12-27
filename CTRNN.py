@@ -34,13 +34,13 @@ class CTRNN(object):
         self.num_nodes = num_nodes
         self.genome = genome
 
-        # covers every case in order to initialse the number of weights and therefore the weight array
+        # covers every case in order to initialize the number of weights and therefore the weight array
         if num_weights is None:
             self.num_weights = len(connection_array)
         else:
             self.num_weights = num_weights
 
-        # initialiase weights
+        # initialize weights
         self.weights = []
         try:
             for idx, weight in enumerate(self.genome[0:self.num_weights]):
@@ -68,7 +68,7 @@ class CTRNN(object):
         # value of each node over time steps
         self.node_history = [[] for _ in range(self.num_nodes)]
 
-        # determines values of nodes should be saved, as this can be quite expensive computationally
+        # determines value of nodes should be saved, as this can be quite expensive computationally
         self.save = False
 
         # step size for euler integration
@@ -83,11 +83,8 @@ class CTRNN(object):
 
         self.node_values = np.array([0.0 for _ in range(self.num_nodes)])
         self.derivatives = np.array([0.0 for _ in range(self.num_nodes)])
+        self.node_history = [[] for _ in range(self.num_nodes)]
         self.forcing = np.float(0.0)
-
-        # only reset fully node_history if save is on
-        if reset_history:
-            self.node_history = [[] for _ in range(self.num_nodes)]
 
     def set_forcing(self, value):
         """ Sets the forcing term of node i to value"""
@@ -124,5 +121,20 @@ class CTRNN(object):
         if self.save:
             for index in range(self.num_nodes):
                 self.node_history[index].append(self.node_values[index])
+
+    def set_parameter(self, pos, new_value):
+        """ Sets the parameter at pos to the new parameter"""
+
+        if pos <= self.num_weights - 1:
+            self.genome[pos] = new_value
+            i_existing = self.weights[pos].i
+            j_existing = self.weights[pos].j
+            self.weights[pos] = Weight(i_existing, j_existing, new_value)
+        elif self.num_weights - 1 < pos <= self.num_weights + self.num_nodes - 1:
+            self.taus[pos - self.num_weights - 1] = new_value
+        elif self.num_weights + 2 * self.num_nodes - 1 <= pos:
+            self.biases[pos - self.num_weights - self.num_nodes - 1] = new_value
+        else:
+            raise IndexError("Index exceeds number of parameter in CTRNN")
 
 

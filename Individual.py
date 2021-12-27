@@ -54,11 +54,11 @@ class Individual:
             stronger individual's genome"""
 
         length = len(weakest_individual.genome)
-        num_swaps = np.floor(change_ratio * length)
+        num_swaps = np.floor(3/2 * change_ratio * length + 1)
 
         for _ in range(int(num_swaps)):
             pos = np.random.randint(0, length)
-            weakest_individual.genome[pos] = self.genome[pos]
+            weakest_individual.change_parameter(pos, self.genome[pos])
 
         weakest_individual.fitness_valid = False
         return weakest_individual
@@ -79,10 +79,12 @@ class Individual:
 
         if self.fitness_valid:
             return self.last_fitness
-        elif fitness_type == "sample":
+        if fitness_type == "sample":
             return self.sample_fitness(target_signal, final_t)
         elif fitness_type == "simpsons":
             return self.simpsons_fitness(target_signal, final_t)
+        else:
+            raise ValueError("Invalid fitness type")
 
     def sample_fitness(self, target_signal, final_t):
         """ Evaluates the fitness level in a individual, true_signal is a function which
@@ -126,9 +128,7 @@ class Individual:
             t.append(idx * step_size)
             y.append(abs(E[idx] - target_signal(t[-1])))
 
-        self.last_fitness = np.float(sci.simps(y=y, x=t))
-        self.fitness_valid = True
-        return self.last_fitness
+        return np.float(sci.simps(y=y, x=t))
 
     def set_rank(self, new_rank):
         self.rank_score = new_rank
@@ -142,10 +142,8 @@ class Individual:
         self.ctrnn.reset()
         self.last_time = 0
 
-        if self.last_time == final_t:
-            return self.ctrnn.node_values[-1]
         if self.last_time > final_t:
-            raise ValueError("current time greater than final time")
+            raise ValueError("Current time greater than final time")
 
         num_steps = abs(final_t - self.last_time) // self.ctrnn.step_size
         for _ in range(int(num_steps)):
@@ -155,4 +153,10 @@ class Individual:
 
         # assuming that the last node is the only output node
         return self.ctrnn.node_values[-1]
+
+    def change_parameter(self, pos, new_value):
+        """ Sets the position in the genome in the new value and also updates the ctrnn"""
+
+        self.genome[pos] = new_value
+        self.ctrnn.set_parameter(pos, new_value)
 

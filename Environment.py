@@ -4,7 +4,7 @@ import inspect
 
 
 class Environment:
-    def __init__(self, target_signal, pop_size=1000, weight_high=5, weight_low=-5, tau_low=0, tau_high=5, bias_low=-2, bias_high=2, center_crossing=False, mutation_chance=0.01):
+    def __init__(self, target_signal, pop_size=1000, weight_high=5, weight_low=-5, tau_low=0, tau_high=5, bias_low=-2, bias_high=2, center_crossing=False, mutation_chance=0.05):
         """ A container, which holds individuals of the environment, methods for evolution and parameters of the
             experiment initialises individuals along some Gaussian distribution or takes a pre-existing array of
             individuals"""
@@ -81,7 +81,8 @@ class Environment:
         """ Preforms mutation on a random part of the genome of a random
             individual by drawing from the respective distribution"""
 
-        individual = self.individuals[np.random.randint(0, self.pop_size)]
+        index = np.random.randint(0, self.pop_size)
+        individual = self.individuals[index]
 
         genome_length = len(individual.genome)
         pos = np.random.randint(0, genome_length)
@@ -102,8 +103,13 @@ class Environment:
 
         step_size = 1/self.pop_size
 
+        # assess fitness levels
+        for idx, individual in enumerate(self.individuals):
+            self.individuals[idx].last_fitness = individual.fitness(self.target_signal, fitness_type, final_t)
+            self.individuals[idx].fitness_valid = True
+
         # sort individuals
-        sort_key = lambda i: i.fitness(self.target_signal, fitness_type, final_t)
+        sort_key = lambda i: i.last_fitness
         self.individuals = sorted(self.individuals, key=sort_key, reverse=True)
 
         # assign rank
@@ -150,7 +156,7 @@ class Environment:
         if cross_over_type == "normal":
             self.individuals[0] = best_individual.normal_cross_over(second_individual)
         elif cross_over_type == "microbial":
-            self.individuals[0] = best_individual.microbial_cross_over(weakest_individual, change_ratio=0.8)
+            self.individuals[0] = best_individual.microbial_cross_over(weakest_individual, change_ratio=0.5)
 
     def save_state(self, state_file="state_file"):
         """ Writes genome and connection matrix to file. Format is
@@ -202,7 +208,7 @@ class Environment:
         num_nodes = int(contents[1])
         true_signal = eval(contents[2][contents[2].find(" ", 2)+2:].strip())
 
-        # line which contains connection information
+        # line contains connection array
         line = contents[3].split()
         connection_array = []
         for item in line:
