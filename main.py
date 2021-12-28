@@ -9,12 +9,12 @@ from genome_distribution import genome_distribution
 from time import time
 
 
-def T(t):
-    return -np.power(t, 2)
-
-
 if __name__ == "__main__":
     """ Set up and run"""
+
+
+    def T(t):
+        return -np.power(t, 2)
 
     target_signal = lambda t: np.sin(t)
     load = False
@@ -24,13 +24,12 @@ if __name__ == "__main__":
     else:
         environment = Environment(target_signal=target_signal, pop_size=200, mutation_chance=0.05, center_crossing=True)
         num_nodes = 1
-        #connectivity_array = [(1, 1), (1, 2), (2, 2)]
         connectivity_array = None
 
         environment.fill_individuals(num_nodes=num_nodes, connection_array=connectivity_array)
 
     final_t = np.ceil(12*np.pi)
-    iterations = 1000
+    iterations = 0
 
     errors = []
     generations = []
@@ -55,26 +54,19 @@ if __name__ == "__main__":
     stdout.write("runtime is {} seconds\n".format(end_time - start_time))
 
     environment.rank(final_t, "simpsons")
-    best_individual = environment.individuals[-1]
-    best_individual.ctrnn.reset(True)
+    best_ctrnn = environment.individuals[-1]
+    best_ctrnn.reset()
 
     times = []
     y_target = []
     DT = 0.01
 
-    best_individual.ctrnn.save = True
-    best_individual.ctrnn.step_size = DT
-    best_individual.evaluate(final_t=final_t)
+    best_ctrnn.step_size = DT
+    y_output = best_ctrnn.evaluate(final_t=final_t)
 
-    worst_individual = environment.individuals[0]
-    worst_individual.ctrnn.reset(True)
-    worst_individual.ctrnn.save = True
-    worst_individual.ctrnn.step_size = DT
+    print(best_ctrnn.genome)
+    print(best_ctrnn.last_fitness)
 
-    print(best_individual.genome)
-    print(best_individual.last_fitness)
-
-    y_output = best_individual.ctrnn.node_history[-1]
     for idx in range(int(final_t/DT)):
         times.append(DT * idx)
         y_target.append(environment.target_signal(times[-1]))
@@ -112,7 +104,7 @@ if __name__ == "__main__":
     plt.grid()"""
 
     # calls plt.show() for all the above plots
-    plot_all_neurons(best_individual, final_t=final_t, step_size=DT)
+    plot_all_neurons(best_ctrnn, final_t=final_t, step_size=DT)
 
     environment.save_state()
 
@@ -121,7 +113,7 @@ if __name__ == "__main__":
 
     contents = ""
     with open("best_individual", "w") as best_file:
-        for idx, y in enumerate(best_individual.genome):
+        for idx, y in enumerate(best_ctrnn.genome):
             contents += str(y) + " "
         best_file.write(contents)
 

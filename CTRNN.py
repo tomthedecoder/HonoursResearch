@@ -1,4 +1,5 @@
 import numpy as np
+from Individual import Individual
 
 
 def sigmoid(x):
@@ -27,27 +28,24 @@ class Weight:
         return "({},{},{})".format(self.i, self.j, self.value)
 
 
-class CTRNN(object):
-    def __init__(self, num_nodes, genome, connection_array, num_weights=None, center_crossing=False):
+class CTRNN(Individual):
+    def __init__(self, num_nodes, genome, connection_array):
         """ Implements a continuous time recurrent neural network"""
+
+        super(CTRNN, self).__init__(genome, num_nodes)
 
         self.num_nodes = num_nodes
         self.genome = genome
+        self.connection_array = connection_array
 
         # covers every case in order to initialize the number of weights and therefore the weight array
-        if num_weights is None:
-            self.num_weights = len(connection_array)
-        else:
-            self.num_weights = num_weights
+        self.num_weights = len(connection_array)
 
         # initialize weights
         self.weights = []
-        try:
-            for idx, weight in enumerate(self.genome[0:self.num_weights]):
-                i, j = connection_array[idx]
-                self.weights.append(Weight(i, j, weight))
-        except IndexError:
-            print("Connection array's dimension must be equal to the number of weights")
+        for idx, weight in enumerate(self.genome[0:self.num_weights]):
+            i, j = self.connection_array[idx]
+            self.weights.append(Weight(i, j, weight))
 
         self.taus = self.genome[self.num_weights:self.num_weights + self.num_nodes]
         self.biases = self.genome[self.num_weights + self.num_nodes:]
@@ -68,23 +66,23 @@ class CTRNN(object):
         # value of each node over time steps
         self.node_history = [[] for _ in range(self.num_nodes)]
 
-        # determines value of nodes should be saved, as this can be quite expensive computationally
-        self.save = False
-
         # step size for euler integration
         self.step_size = 0.01
+
+        # times of evaluation
+        self.last_time = 0
 
     def __repr__(self):
         return "f'weights':\n{self.weights}\nbiases:\t{self.biases}\ntaus:\t{self.taus}"
 
-    def reset(self, reset_history=False):
-        """ Easy reset of CTRNN, setting node values, derivatives, last_time and forcing term are set to 0.
-            Intended so that evaluation is non-biased"""
+    def reset(self):
+        """ Sets node values, derivatives, last_time and forcing term are set to 0."""
 
         self.node_values = np.array([0.0 for _ in range(self.num_nodes)])
         self.derivatives = np.array([0.0 for _ in range(self.num_nodes)])
         self.node_history = [[] for _ in range(self.num_nodes)]
         self.forcing = np.float(0.0)
+        self.last_time = 0
 
     def set_forcing(self, value):
         """ Sets the forcing term of node i to value"""
@@ -97,7 +95,7 @@ class CTRNN(object):
         return self.node_values[node_i]
 
     def calculate_derivative(self):
-        """ Recalculates each derivative term"""
+        """ Recalculates the derivative of each term"""
 
         sigmoid_terms = np.array([0.0 for _ in range(self.num_nodes)])
 
@@ -112,15 +110,13 @@ class CTRNN(object):
         return self.derivatives
 
     def update(self):
-        """ Updates each the value of each node"""
+        """ Updates the value of each node"""
 
         self.calculate_derivative()
         self.node_values += self.derivatives * self.step_size
 
-        # not enough memory sometimes and increases speed when record not needed
-        if self.save:
-            for index in range(self.num_nodes):
-                self.node_history[index].append(self.node_values[index])
+        for index in range(self.num_nodes):
+            self.node_history[index].append(self.node_values[index])
 
     def set_parameter(self, pos, new_value):
         """ Sets the parameter at pos to the new parameter"""
@@ -136,5 +132,22 @@ class CTRNN(object):
             self.biases[pos - self.num_weights - self.num_nodes - 1] = new_value
         else:
             raise IndexError("Index exceeds number of parameter in CTRNN")
+
+    def evaluate(self, final_t):
+        """ Gets CTRNN output by euler-step method. Assumes that the last node is the output node"""
+
+        self.reset()
+
+        if self.last_time > final_t:
+            raise ValueError("Current time greater than final time")
+
+        num_steps = abs(final_t - self.last_time) // self.step_size
+        for _ in range(int(num_steps)):
+            self.set_forcing(self.input_signal(self.last_time))
+            self.update()
+            self.last_time += self.step_size
+
+        return self.node_history[-1]
+
 
 

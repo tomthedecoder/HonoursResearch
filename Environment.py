@@ -1,5 +1,5 @@
 import numpy as np
-from Individual import *
+from CTRNN import CTRNN
 import inspect
 
 
@@ -25,17 +25,9 @@ class Environment:
 
         self.target_signal = target_signal
 
-        # contains (i,j) tuples if there exists an edge from i to j
-        self.connection_array = []
-
     def fill_individuals(self, num_nodes, connection_array=None, individuals=None):
         """ Initialise self.individuals using uniform distributions. If a individual array is provided, simply assign
             this to self.individuals"""
-
-        if connection_array is None:
-            num_weights = num_nodes ** 2
-        else:
-            num_weights = len(connection_array)
 
         if individuals is None:
             # if no connection array is passed in, put a connection between all nodes
@@ -45,17 +37,18 @@ class Environment:
                     for idy in range(num_nodes):
                         connection_array.append((idx + 1, idy + 1))
 
-            self.connection_array = connection_array
+            # populate self.individuals with CTRNNs
             self.individuals = []
             for _ in range(self.pop_size):
-                genome = self.make_genome(num_nodes, num_weights)
-                self.individuals.append(Individual(genome, num_nodes,
-                                                   center_crossing=self.center_crossing, connection_array=self.connection_array))
+                genome = self.make_genome(num_nodes, connection_array)
+                self.individuals.append(CTRNN(num_nodes, genome, connection_array))
         else:
             self.individuals = individuals
 
-    def make_genome(self, num_nodes, num_weights):
+    def make_genome(self, num_nodes, connection_array):
         """ Generates a new genome from the environment's specifications"""
+
+        num_weights = len(connection_array)
 
         weights = np.random.uniform(self.weight_low, self.weight_high, size=num_weights)
         taus = np.random.uniform(self.tau_low+0.01, self.tau_high, size=num_nodes)
@@ -66,7 +59,7 @@ class Environment:
             # corresponds to the edge in connection_array[idx]
             biases = np.array([0.0 for _ in range(num_nodes)])
             for idx in range(num_weights):
-                i, j = self.connection_array[idx]
+                i, j = connection_array[idx]
                 i -= 1
                 biases[i] += weights[idx] / 2
         else:
@@ -78,8 +71,8 @@ class Environment:
         return genome
 
     def mutate(self):
-        """ Preforms mutation on a random part of the genome of a random
-            individual by drawing from the respective distribution"""
+        """ Preforms mutation on a random part of the genome of a random individual by drawing from the
+            respective distribution"""
 
         index = np.random.randint(0, self.pop_size)
         individual = self.individuals[index]
@@ -89,17 +82,17 @@ class Environment:
 
         # assign random value from proper distribution
         if pos <= individual.num_nodes ** 2 - 1:
-            individual.genome[pos] = np.random.randint(low=self.weight_low, high=self.weight_high)
+            individual.set_parameter(pos, np.random.randint(self.weight_low, self.weight_high))
         elif individual.num_nodes ** 2 - 1 < pos <= individual.num_nodes ** 2 + individual.num_nodes - 1:
-            individual.genome[pos] = np.random.randint(low=self.tau_low, high=self.tau_high)
+            individual.set_parameter(pos, np.random.randint(self.tau_low, self.tau_high))
             if individual.genome[pos] == 0:
-                individual.genome[pos] = 0.01
+                individual.set_parameter(pos, 0.001)
         else:
-            individual.genome[pos] = np.random.randint(low=self.bias_low, high=self.bias_high)
+            individual.set_parameter(pos, np.random.randint(self.bias_low, self.bias_high))
 
     def rank(self, final_t, fitness_type):
-        """ Assign rank between 0 and 2 to each individual in the environment. The fitter an individual
-            the higher it's rank"""
+        """ Assign rank between 0 and 2 to each individual in the environment. The fitter an individual the higher
+            it's rank"""
 
         step_size = 1/self.pop_size
 
@@ -109,8 +102,7 @@ class Environment:
             self.individuals[idx].fitness_valid = True
 
         # sort individuals
-        sort_key = lambda i: i.last_fitness
-        self.individuals = sorted(self.individuals, key=sort_key, reverse=True)
+        self.individuals = sorted(self.individuals, key=lambda i: i.last_fitness, reverse=True)
 
         # assign rank
         for idx, individual in enumerate(self.individuals):
@@ -118,8 +110,7 @@ class Environment:
             individual.set_rank(new_rank)
 
     def lower_third_reproduction(self, final_t, cross_over_type="normal", fitness_type="simpsons"):
-        """ Performs a round of reproduction. The lower third is replaced with off-spring
-            from the top third"""
+        """ Performs a round of reproduction. The lower third is replaced with off-spring from the top third"""
 
         self.rank(final_t, fitness_type)
 
@@ -141,11 +132,13 @@ class Environment:
                 new_individual = parent1.normal_cross_over(parent2)
             elif cross_over_type == "microbial":
                 new_individual = parent1.microbial_cross_over(self.individuals[idx])
+            else:
+                raise ValueError("Specified fitness type is unknown")
 
             self.individuals[idx] = new_individual
 
     def weakest_individual_reproduction(self, final_t, cross_over_type="normal", fitness_type="simpsons"):
-        """ Replaces weakest individual with child of best two"""
+        """ Replaces the weakest individual with child of best two"""
 
         self.rank(final_t, fitness_type)
 
@@ -159,7 +152,7 @@ class Environment:
             self.individuals[0] = best_individual.microbial_cross_over(weakest_individual, change_ratio=0.5)
 
     def save_state(self, state_file="state_file"):
-        """ Writes genome and connection matrix to file. Format is
+        """ Writes genome and connection matrix of CTRNN to file. Format is
         # number of individuals
         # connection matrix
         # the true signal and then
@@ -177,7 +170,7 @@ class Environment:
         contents += signal_as_string[signal_as_string.find(" ", 2):].strip() + '\n'
 
         # add the connection matrix to write string
-        weights = self.individuals[0].ctrnn.weights
+        weights = self.individuals[0].weights
 
         for weight in weights:
             i = weight.get_i()
@@ -198,7 +191,7 @@ class Environment:
 
     @staticmethod
     def load_environment(filename="state_file"):
-        """ Returns an environment from a saved state"""
+        """ Returns an environment filled with CTRNNs from a saved state"""
 
         # read file contents
         with open(filename) as read_file:
@@ -228,10 +221,10 @@ class Environment:
                     num = ""
                     continue
                 num += char
-            individuals.append(Individual(genome=genome, num_nodes=num_nodes, connection_array=connection_array, center_crossing=False))
+            individuals.append(CTRNN(genome, num_nodes, connection_array))
 
-        new_environment = Environment(true_signal, pop_size=pop_size)
-        new_environment.fill_individuals(num_nodes, connection_array=connection_array, individuals=individuals)
+        new_environment = Environment(true_signal, pop_size)
+        new_environment.fill_individuals(num_nodes, connection_array, individuals)
 
         return new_environment
 
