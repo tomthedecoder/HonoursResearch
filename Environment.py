@@ -99,7 +99,6 @@ class Environment:
         # assess fitness levels
         for idx, individual in enumerate(self.individuals):
             self.individuals[idx].last_fitness = individual.fitness(self.target_signal, fitness_type, final_t)
-            self.individuals[idx].fitness_valid = True
 
         # sort individuals
         self.individuals = sorted(self.individuals, key=lambda i: i.last_fitness, reverse=True)
@@ -212,7 +211,7 @@ class Environment:
 
         # get genomes
         individuals = []
-        for line in contents[3+num_nodes:]:
+        for line in contents[4:]:
             genome = []
             num = ""
             for char in line:
@@ -221,7 +220,7 @@ class Environment:
                     num = ""
                     continue
                 num += char
-            individuals.append(CTRNN(genome, num_nodes, connection_array))
+            individuals.append(CTRNN(num_nodes, genome, connection_array))
 
         new_environment = Environment(true_signal, pop_size)
         new_environment.fill_individuals(num_nodes, connection_array, individuals)

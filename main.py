@@ -12,24 +12,24 @@ from time import time
 if __name__ == "__main__":
     """ Set up and run"""
 
+    def ts(t):
+        return np.power(t, 2)
 
-    def T(t):
-        return -np.power(t, 2)
+    target_signal = lambda t : np.sin(5*t)
 
-    target_signal = lambda t: np.sin(t)
     load = False
     if path.exists("state_file") and load:
         environment = Environment.load_environment("state_file")
         environment.target_signal = target_signal
     else:
-        environment = Environment(target_signal=target_signal, pop_size=200, mutation_chance=0.05, center_crossing=True)
-        num_nodes = 1
+        environment = Environment(target_signal=target_signal, pop_size=500, mutation_chance=0.05, center_crossing=True)
+        num_nodes = 10
         connectivity_array = None
 
         environment.fill_individuals(num_nodes=num_nodes, connection_array=connectivity_array)
 
     final_t = np.ceil(12*np.pi)
-    iterations = 0
+    iterations = 500
 
     errors = []
     generations = []
@@ -37,6 +37,7 @@ if __name__ == "__main__":
     start_time = time()
 
     for i in range(iterations):
+
         mp = np.random.uniform(0, 1, 1)[0]
         if mp >= 1 - environment.mutation_chance:
             environment.mutate()
@@ -51,9 +52,10 @@ if __name__ == "__main__":
         generations.append(i+1)
 
     end_time = time()
-    stdout.write("runtime is {} seconds\n".format(end_time - start_time))
+    stdout.write("\nruntime is {} seconds\n".format(end_time - start_time))
 
     environment.rank(final_t, "simpsons")
+
     best_ctrnn = environment.individuals[-1]
     best_ctrnn.reset()
 

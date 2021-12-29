@@ -61,7 +61,7 @@ class CTRNN(Individual):
 
         # the input to the nodes
         # in this implementation, input values to all nodes are the same
-        self.forcing = 0
+        self.forcing = [0.0 for _ in range(self.num_nodes)]
 
         # value of each node over time steps
         self.node_history = [[] for _ in range(self.num_nodes)]
@@ -81,13 +81,14 @@ class CTRNN(Individual):
         self.node_values = np.array([0.0 for _ in range(self.num_nodes)])
         self.derivatives = np.array([0.0 for _ in range(self.num_nodes)])
         self.node_history = [[] for _ in range(self.num_nodes)]
-        self.forcing = np.float(0.0)
+        self.forcing = [0.0 for _ in range(self.num_nodes)]
         self.last_time = 0
 
-    def set_forcing(self, value):
+    def set_forcing(self, t):
         """ Sets the forcing term of node i to value"""
 
-        self.forcing = value
+        for idx in range(self.num_nodes):
+            self.forcing[idx] = self.input_signals[idx % self.num_inputs](t)
 
     def node_value(self, node_i):
         """ Returns value of node_i"""
@@ -128,7 +129,7 @@ class CTRNN(Individual):
             self.weights[pos] = Weight(i_existing, j_existing, new_value)
         elif self.num_weights - 1 < pos <= self.num_weights + self.num_nodes - 1:
             self.taus[pos - self.num_weights - 1] = new_value
-        elif self.num_weights + 2 * self.num_nodes - 1 <= pos:
+        elif self.num_weights + self.num_nodes - 1 <= pos:
             self.biases[pos - self.num_weights - self.num_nodes - 1] = new_value
         else:
             raise IndexError("Index exceeds number of parameter in CTRNN")
@@ -141,9 +142,9 @@ class CTRNN(Individual):
         if self.last_time > final_t:
             raise ValueError("Current time greater than final time")
 
-        num_steps = abs(final_t - self.last_time) // self.step_size
+        num_steps = final_t / self.step_size
         for _ in range(int(num_steps)):
-            self.set_forcing(self.input_signal(self.last_time))
+            self.set_forcing(self.last_time)
             self.update()
             self.last_time += self.step_size
 

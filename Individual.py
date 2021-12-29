@@ -9,10 +9,14 @@ class Individual(object):
         self.num_nodes = num_nodes
 
         # input to each node of this individual
-        def I(t):
+        def I1(t):
             return np.sin(t)
 
-        self.input_signal = lambda t: I(t)
+        def I2(t):
+            return np.cos(t)
+
+        self.input_signals = [I1, I2]
+        self.num_inputs = len(self.input_signals)
 
         # the linear rank of this individual, relative to fitness of other individuals. Between 0 and 2.
         self.rank_score = 0
@@ -51,9 +55,10 @@ class Individual(object):
 
         for _ in range(int(num_swaps)):
             pos = np.random.randint(0, length)
-            weakest_individual.change_parameter(pos, self.genome[pos])
+            weakest_individual.set_parameter(pos, self.genome[pos])
 
         weakest_individual.fitness_valid = False
+
         return weakest_individual
 
     def cross_over(self, individual, cross_over_type="microbial", *args):
@@ -70,13 +75,16 @@ class Individual(object):
         final_t = args[0]
 
         if self.fitness_valid:
-            return self.last_fitness
-        if fitness_type == "sample":
-            return self.sample_fitness(target_signal, final_t)
+            fitness = self.last_fitness
+        elif fitness_type == "sample":
+            fitness = self.sample_fitness(target_signal, final_t)
         elif fitness_type == "simpsons":
-            return self.simpsons_fitness(target_signal, final_t)
+            fitness = self.simpsons_fitness(target_signal, final_t)
         else:
             raise ValueError("Invalid fitness type")
+
+        self.fitness_valid = True
+        return fitness
 
     def sample_fitness(self, target_signal, final_t):
         """ Evaluates the fitness level in a individual, true_signal is a function which self.ctrnn seeks to approximate.
@@ -106,7 +114,6 @@ class Individual(object):
         y = []
 
         E = self.evaluate(final_t)
-
         for idx in range(num_samples):
             t.append(idx * step_size)
             y.append(abs(E[idx] - target_signal(t[-1])))

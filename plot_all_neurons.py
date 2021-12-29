@@ -35,7 +35,7 @@ def plot_all_neurons(ctrnn, final_t=10, step_size=0.01):
         nodes_in_plot = min(ctrnn.num_nodes, MAX_NODE)
         fig, axs = plt.subplots(nodes_in_plot)
         for node in range(nodes_in_plot):
-            axs[node].plot(times, ctrnn.ctrnn.node_history[node + nodes_plotted])
+            axs[node].plot(times, ctrnn.node_history[node + nodes_plotted])
             axs[node].set_title("Node {}".format(node+1+nodes_plotted))
             axs[node].set_xlabel("Time(t)")
             axs[node].set_ylabel("Output(y)")
