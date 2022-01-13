@@ -32,14 +32,23 @@ def plot_all_neurons(ctrnn, final_t=10, step_size=0.01):
     MAX_NODE = 5
     nodes_plotted = 0
     for idx in range(int(np.ceil(ctrnn.num_nodes / MAX_NODE))):
-        nodes_in_plot = min(ctrnn.num_nodes, MAX_NODE)
+        nodes_in_plot = min(ctrnn.num_nodes - nodes_plotted, MAX_NODE)
         fig, axs = plt.subplots(nodes_in_plot)
-        for node in range(nodes_in_plot):
-            axs[node].plot(times, ctrnn.node_history[node + nodes_plotted])
-            axs[node].set_title("Node {}".format(node+1+nodes_plotted))
-            axs[node].set_xlabel("Time(t)")
-            axs[node].set_ylabel("Output(y)")
-            axs[node].grid()
-        plt.show()
+
+        if nodes_in_plot == 1:
+            axs.plot(times, ctrnn.node_history[nodes_plotted])
+            axs.set_title(f"Node {1 + nodes_plotted}")
+            axs.set_xlabel("Time(t)")
+            axs.set_ylabel("Output(y)")
+            axs.grid()
+        else:
+            for node in range(nodes_in_plot):
+                axs[node].plot(times, ctrnn.node_history[node + nodes_plotted])
+                axs[node].set_title(f"Node {node+1+nodes_plotted}")
+                axs[node].set_xlabel("Time(t)")
+                axs[node].set_ylabel("Output(y)")
+                axs[node].grid()
         nodes_plotted += nodes_in_plot
+        plt.show()
+
 

@@ -8,14 +8,14 @@ class Individual(object):
         self.genome = genome
         self.num_nodes = num_nodes
 
-        # input to each node of this individual
+        # input to each node of this individual, input signals are assigned to nodes with index mod the number of inputs
         def I1(t):
             return np.sin(t)
 
         def I2(t):
             return np.cos(t)
 
-        self.input_signals = [I1, I2]
+        self.input_signals = [I1]
         self.num_inputs = len(self.input_signals)
 
         # the linear rank of this individual, relative to fitness of other individuals. Between 0 and 2.
@@ -51,10 +51,14 @@ class Individual(object):
             stronger individual's genome"""
 
         length = len(weakest_individual.genome)
-        num_swaps = np.floor(3/2 * change_ratio * length + 1)
-
+        num_swaps = np.ceil(change_ratio * length)
         for _ in range(int(num_swaps)):
             pos = np.random.randint(0, length)
+            for _ in range(100):
+                if weakest_individual.genome[pos] != self.genome[pos]:
+                    break
+                pos = np.random.randint(0, length)
+
             weakest_individual.set_parameter(pos, self.genome[pos])
 
         weakest_individual.fitness_valid = False
@@ -70,7 +74,7 @@ class Individual(object):
             return self.normal_cross_over(individual)
 
     def fitness(self, target_signal, fitness_type, *args):
-        """ Hook method for the fitness of a individual"""
+        """ Hook method for the fitness of an individual"""
 
         final_t = args[0]
 

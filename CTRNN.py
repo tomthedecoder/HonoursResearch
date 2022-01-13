@@ -1,6 +1,12 @@
 import numpy as np
 from Individual import Individual
 
+""""
+Contributors to the CTRNN class:
+Thomas Bailie
+Mathew Egbert 
+"""
+
 
 def sigmoid(x):
     """ sigmoid activation function"""
@@ -18,10 +24,10 @@ class Weight:
         self.j = j
         self.value = value
 
-    def get_i(self):
+    def traveled_from(self):
         return self.i
 
-    def get_j(self):
+    def traveled_to(self):
         return self.j
 
     def __str__(self):
@@ -37,8 +43,6 @@ class CTRNN(Individual):
         self.num_nodes = num_nodes
         self.genome = genome
         self.connection_array = connection_array
-
-        # covers every case in order to initialize the number of weights and therefore the weight array
         self.num_weights = len(connection_array)
 
         # initialize weights
@@ -90,6 +94,11 @@ class CTRNN(Individual):
         for idx in range(self.num_nodes):
             self.forcing[idx] = self.input_signals[idx % self.num_inputs](t)
 
+    def get_forcing(self, node_i):
+        """ Returns the forcing term for node_i"""
+
+        return self.forcing[node_i % self.num_inputs]
+
     def node_value(self, node_i):
         """ Returns value of node_i"""
 
@@ -99,12 +108,11 @@ class CTRNN(Individual):
         """ Recalculates the derivative of each term"""
 
         sigmoid_terms = np.array([0.0 for _ in range(self.num_nodes)])
-
         # calculate the weight * sigmoid terms for each node
         for weight in self.weights:
-            from_node = weight.get_i() - 1
-            to_node = weight.get_j() - 1
-            sigmoid_terms[from_node] += weight.value * sigmoid(self.node_values[to_node] + self.biases[to_node])
+            from_node = weight.traveled_from() - 1
+            to_node = weight.traveled_to() - 1
+            sigmoid_terms[to_node] += weight.value * sigmoid(self.node_values[from_node] + self.biases[from_node])
 
         self.derivatives = (-self.node_values + sigmoid_terms + self.forcing) / self.taus
 
@@ -122,15 +130,15 @@ class CTRNN(Individual):
     def set_parameter(self, pos, new_value):
         """ Sets the parameter at pos to the new parameter"""
 
+        self.genome[pos] = new_value
         if pos <= self.num_weights - 1:
-            self.genome[pos] = new_value
             i_existing = self.weights[pos].i
             j_existing = self.weights[pos].j
             self.weights[pos] = Weight(i_existing, j_existing, new_value)
         elif self.num_weights - 1 < pos <= self.num_weights + self.num_nodes - 1:
-            self.taus[pos - self.num_weights - 1] = new_value
+            self.taus[pos - self.num_weights] = new_value
         elif self.num_weights + self.num_nodes - 1 <= pos:
-            self.biases[pos - self.num_weights - self.num_nodes - 1] = new_value
+            self.biases[pos - self.num_weights - self.num_nodes] = new_value
         else:
             raise IndexError("Index exceeds number of parameter in CTRNN")
 

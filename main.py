@@ -3,60 +3,110 @@ import numpy as np
 import matplotlib.pyplot as plt
 from os import path
 from sys import stdout
-from scipy import fft
 from plot_all_neurons import plot_all_neurons
 from genome_distribution import genome_distribution
 from time import time
-
 
 if __name__ == "__main__":
     """ Set up and run"""
 
     def ts(t):
-        return np.power(t, 2)
+        return np.sin(2 * t)
 
-    target_signal = lambda t : np.sin(5*t)
+    target_signal = lambda t: ts(t)
 
-    load = False
+    # probability that cross over will occur between demes
+    cross_over_probability = 0.75
+    num_demes = 5
+    demes = []
+
+    load = True
     if path.exists("state_file") and load:
         environment = Environment.load_environment("state_file")
         environment.target_signal = target_signal
     else:
-        environment = Environment(target_signal=target_signal, pop_size=500, mutation_chance=0.05, center_crossing=True)
-        num_nodes = 10
-        connectivity_array = None
+        for _ in range(num_demes):
+            environment = Environment(target_signal=target_signal, pop_size=50, mutation_chance=0.01, center_crossing=False)
+            num_nodes = 4
+            connectivity_array = None
+            environment.fill_individuals(num_nodes=num_nodes, connection_array=connectivity_array)
+            demes.append(environment)
 
-        environment.fill_individuals(num_nodes=num_nodes, connection_array=connectivity_array)
+    stdout.write("environments have been loaded, beginning run\n")
 
     final_t = np.ceil(12*np.pi)
-    iterations = 500
+    num_generations = 4000
+    num_iterations = 100
 
-    errors = []
+    best_fitness = []
+    average_fitness = []
     generations = []
 
     start_time = time()
 
-    for i in range(iterations):
+    for i in range(num_generations):
+        # average fitness is the average across all demes
+        generation_average_fitness = 0
+        strongest_individual_fitness = -np.Infinity
 
-        mp = np.random.uniform(0, 1, 1)[0]
-        if mp >= 1 - environment.mutation_chance:
-            environment.mutate()
+        for deme_index, environment in enumerate(demes):
+            mc, cc = np.random.uniform(0, 1, 2)
+            if mc >= 1 - environment.mutation_chance:
+                environment.mutate()
 
-        last_strongest = environment.individuals[-1]
-        environment.weakest_individual_reproduction(final_t, cross_over_type="microbial", fitness_type="simpsons")
+            last_strongest = environment.individuals[-1]
+            if cc >= 1 - cross_over_probability:
+                environment = demes[np.random.randint(0, num_demes)]
+                individual = environment.individuals[np.random.randint(0, environment.pop_size)]
+                last_strongest.cross_over(individual, "microbial", 0.5)
+            else:
+                environment.weakest_individual_reproduction(final_t, cross_over_type="microbial", fitness_type="simpsons")
 
-        if last_strongest != environment.individuals[-1] and i > 0:
-            stdout.write("change in strongest has occurred at iteration {}\n".format(i))
+            if last_strongest != environment.individuals[-1] and i > 0:
+                stdout.write(f"change in strongest of deme {deme_index} has occurred at iteration {i}\n")
 
-        errors.append(environment.individuals[-1].last_fitness)
+            if strongest_individual_fitness > last_strongest.last_fitness:
+                strongest_individual_fitness = last_strongest.last_fitness
+
+            generation_average_fitness = 0
+            for individual in environment.individuals:
+                generation_average_fitness += individual.last_fitness
+            generation_average_fitness /= 1/environment.pop_size
+
+        best_fitness.append(-strongest_individual_fitness)
+
+        generation_average_fitness /= 1/num_demes
+        average_fitness.append(-generation_average_fitness)
+
         generations.append(i+1)
 
     end_time = time()
-    stdout.write("\nruntime is {} seconds\n".format(end_time - start_time))
+    stdout.write(f"run finished for {num_generations} iterations, runtime is {end_time - start_time} seconds\n")
 
-    environment.rank(final_t, "simpsons")
+    # perform rank on individuals across all demes
+    for environment in demes:
+        environment.rank(final_t, "simpsons")
 
-    best_ctrnn = environment.individuals[-1]
+    # save the state of demes
+    stdout.write("saving state\n")
+    for environment in demes:
+        environment.save_state()
+    stdout.write("state has been saved\n")
+
+    # get best ctrnn across all environments in demes
+    strongest_individual_fitness = demes[0].individuals[-1].last_fitness
+    best_ctrnn = demes[0].individuals[-1]
+    for environment in demes:
+        local_best_ctrnn = environment.individuals[-1]
+        if strongest_individual_fitness > local_best_ctrnn.last_fitness:
+            strongest_individual_fitness = local_best_ctrnn.last_fitness
+            best_ctrnn = local_best_ctrnn
+
+    stdout.write(f"best ctrnn has fitness {best_ctrnn.last_fitness} and genome {best_ctrnn.genome}\n")
+
+    ###################
+    # Plot best ctrnn #
+    ###################
     best_ctrnn.reset()
 
     times = []
@@ -66,12 +116,9 @@ if __name__ == "__main__":
     best_ctrnn.step_size = DT
     y_output = best_ctrnn.evaluate(final_t=final_t)
 
-    print(best_ctrnn.genome)
-    print(best_ctrnn.last_fitness)
-
     for idx in range(int(final_t/DT)):
         times.append(DT * idx)
-        y_target.append(environment.target_signal(times[-1]))
+        y_target.append(target_signal(times[-1]))
 
     plt.figure()
     plt.grid()
@@ -84,8 +131,15 @@ if __name__ == "__main__":
 
     plt.figure()
     plt.grid()
-    plt.plot(generations, errors, 'b')
+    plt.plot(generations, best_fitness, 'b')
     plt.title('Fitness Of Best Individual')
+    plt.xlabel('Generation')
+    plt.ylabel('Fitness')
+
+    plt.figure()
+    plt.grid()
+    plt.plot(generations, average_fitness, 'g')
+    plt.title('Fitness Of Average Individual')
     plt.xlabel('Generation')
     plt.ylabel('Fitness')
 
@@ -94,48 +148,11 @@ if __name__ == "__main__":
     # spacing between points
     T = 1.0/N
 
-    """"fourier_of_output = fft(y_output)
-    fourier_of_target = fft(y_target)
-    tf = fftfreq(N, T)[:N // 2]
-
-    plt.figure()
-    plt.title("Fourier Transforms")
-    plt.plot(tf, 1.0 / N * np.abs(fourier_of_output[0:N // 2]), 'g')
-    plt.plot(tf, 1.0 / N * np.abs(fourier_of_target[0:N // 2]), 'b')
-    plt.legend(["Output", "Target"])
-    plt.grid()"""
-
     # calls plt.show() for all the above plots
     plot_all_neurons(best_ctrnn, final_t=final_t, step_size=DT)
 
-    environment.save_state()
-
     # display genome distribution by reading from state file
     genome_distribution()
-
-    contents = ""
-    with open("best_individual", "w") as best_file:
-        for idx, y in enumerate(best_ctrnn.genome):
-            contents += str(y) + " "
-        best_file.write(contents)
-
-    contents = ""
-    with open("output_file", "w") as output_file:
-        for idx, y in enumerate(y_output):
-            contents += str(y) + " "
-        output_file.write(contents)
-
-    contents = ""
-    with open("time_file", "w") as time_file:
-        for idx, t in enumerate(times):
-            contents += str(t) + " "
-        time_file.write(contents)
-
-    contents = ""
-    with open("targets_file", "w") as targets_file:
-        for idx, y in enumerate(y_target):
-            contents += str(y) + " "
-        targets_file.write(contents)
 
 
 

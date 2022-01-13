@@ -1,10 +1,10 @@
 import numpy as np
 from CTRNN import CTRNN
 import inspect
-
+from os import path
 
 class Environment:
-    def __init__(self, target_signal, pop_size=1000, weight_high=5, weight_low=-5, tau_low=0, tau_high=5, bias_low=-2, bias_high=2, center_crossing=False, mutation_chance=0.05):
+    def __init__(self, target_signal, pop_size=3, weight_high=10, weight_low=-10, tau_low=0, tau_high=1, bias_low=-5, bias_high=5, center_crossing=False, mutation_chance=0.9):
         """ A container, which holds individuals of the environment, methods for evolution and parameters of the
             experiment initialises individuals along some Gaussian distribution or takes a pre-existing array of
             individuals"""
@@ -20,6 +20,8 @@ class Environment:
         self.bias_high = bias_high
         self.bias_low = bias_low
         self.center_crossing = center_crossing
+
+        self.mutation_coefficient = 0.2
 
         self.individuals = []
 
@@ -41,7 +43,21 @@ class Environment:
             self.individuals = []
             for _ in range(self.pop_size):
                 genome = self.make_genome(num_nodes, connection_array)
-                self.individuals.append(CTRNN(num_nodes, genome, connection_array))
+                ctrnn = CTRNN(num_nodes, genome, connection_array)
+
+                # sets biases to center-crossing
+                if self.center_crossing:
+                    biases = np.array([0.0 for _ in range(num_nodes)])
+                    ctrnn.set_forcing(0)
+                    for weight_i in range(ctrnn.num_weights):
+                        i, j = connection_array[weight_i]
+                        biases[i-1] = ctrnn.get_forcing(weight_i)
+                        for weight in ctrnn.weights:
+                            if weight.traveled_to() == i:
+                                biases[i-1] += weight.value
+                        biases[i-1] /= 2
+
+                self.individuals.append(ctrnn)
         else:
             self.individuals = individuals
 
@@ -52,18 +68,7 @@ class Environment:
 
         weights = np.random.uniform(self.weight_low, self.weight_high, size=num_weights)
         taus = np.random.uniform(self.tau_low+0.01, self.tau_high, size=num_nodes)
-
-        # create center crossing biases here if called for
-        if self.center_crossing:
-            # this procedure is possible because the weight in weights[idx]
-            # corresponds to the edge in connection_array[idx]
-            biases = np.array([0.0 for _ in range(num_nodes)])
-            for idx in range(num_weights):
-                i, j = connection_array[idx]
-                i -= 1
-                biases[i] += weights[idx] / 2
-        else:
-            biases = np.random.uniform(self.bias_low, self.bias_high, size=num_nodes)
+        biases = np.random.uniform(self.bias_low, self.bias_high, size=num_nodes)
 
         genome = np.append(weights, taus)
         genome = np.append(genome, biases)
@@ -74,21 +79,26 @@ class Environment:
         """ Preforms mutation on a random part of the genome of a random individual by drawing from the
             respective distribution"""
 
-        index = np.random.randint(0, self.pop_size)
+        index = np.random.randint(1, self.pop_size)
         individual = self.individuals[index]
 
         genome_length = len(individual.genome)
         pos = np.random.randint(0, genome_length)
+        mutation_distance = 0
+        direction = [-1, 1][np.random.randint(0, 2)]
 
         # assign random value from proper distribution
         if pos <= individual.num_nodes ** 2 - 1:
-            individual.set_parameter(pos, np.random.randint(self.weight_low, self.weight_high))
+            mutation_distance = direction * self.mutation_coefficient * (self.weight_high - self.weight_low)
+            individual.set_parameter(pos, mutation_distance)
         elif individual.num_nodes ** 2 - 1 < pos <= individual.num_nodes ** 2 + individual.num_nodes - 1:
-            individual.set_parameter(pos, np.random.randint(self.tau_low, self.tau_high))
+            mutation_distance = direction * self.mutation_coefficient * (self.tau_high - self.tau_low)
+            individual.set_parameter(pos, mutation_distance)
             if individual.genome[pos] == 0:
                 individual.set_parameter(pos, 0.001)
         else:
-            individual.set_parameter(pos, np.random.randint(self.bias_low, self.bias_high))
+            mutation_distance = direction * self.mutation_coefficient * (self.bias_high - self.bias_low)
+            individual.set_parameter(pos, mutation_distance)
 
     def rank(self, final_t, fitness_type):
         """ Assign rank between 0 and 2 to each individual in the environment. The fitter an individual the higher
@@ -148,17 +158,19 @@ class Environment:
         if cross_over_type == "normal":
             self.individuals[0] = best_individual.normal_cross_over(second_individual)
         elif cross_over_type == "microbial":
-            self.individuals[0] = best_individual.microbial_cross_over(weakest_individual, change_ratio=0.5)
+            self.individuals[0] = best_individual.microbial_cross_over(weakest_individual, change_ratio=0.25)
 
-    def save_state(self, state_file="state_file"):
+    def save_state(self, environment_index, state_file="state_file"):
         """ Writes genome and connection matrix of CTRNN to file. Format is
         # number of individuals
         # connection matrix
         # the true signal and then
         # _
-        # genome
+        # fitness_valid, last_fitness, genome
         # _
         # for every individual"""
+
+        state_file = f"{state_file}{environment_index}"
 
         # collect string to store in file
         num_nodes = self.individuals[0].num_nodes
@@ -172,33 +184,35 @@ class Environment:
         weights = self.individuals[0].weights
 
         for weight in weights:
-            i = weight.get_i()
-            j = weight.get_j()
+            i = weight.traveled_from()
+            j = weight.traveled_to()
             contents += "{},{} ".format(i, j)
         contents += '\n'
 
-        # add genomes to write string
+        # add fitness_valid, fitness, genome to write string
         for idx, individual in enumerate(self.individuals):
-            str_genome = ""
+            str_individual = f"{individual.fitness_valid} {individual.last_fitness} "
             for idx, gene in enumerate(individual.genome):
-                str_genome += str(gene) + " "
-            contents += str_genome + "\n"
+                str_individual += str(gene) + " "
+            contents += str_individual + "\n"
 
         # write string to file
         with open(state_file, "w") as write_file:
             write_file.write(contents)
 
     @staticmethod
-    def load_environment(filename="state_file"):
+    def load_environment(environment_index, state_file="state_file"):
         """ Returns an environment filled with CTRNNs from a saved state"""
 
+        state_file = f"{state_file}{environment_index}"
+
         # read file contents
-        with open(filename) as read_file:
+        with open(state_file) as read_file:
             contents = read_file.readlines()
 
         pop_size = int(contents[0])
         num_nodes = int(contents[1])
-        true_signal = eval(contents[2][contents[2].find(" ", 2)+2:].strip())
+        target_signal = eval(contents[2][contents[2].find(" ", 2)+2:].strip())
 
         # line contains connection array
         line = contents[3].split()
@@ -213,16 +227,29 @@ class Environment:
         individuals = []
         for line in contents[4:]:
             genome = []
+
+            # add fitness valid, fitness true
+            p1 = line.find(" ")
+            p2 = line.find(" ", p1+1)
+            fitness_valid = bool(line[0:p1])
+            last_fitness = float(line[p1:p2])
+
             num = ""
-            for char in line:
+            for idx, char in enumerate(line):
+                if idx <= p2:
+                    continue
                 if char == " ":
                     genome.append(float(num))
                     num = ""
                     continue
                 num += char
-            individuals.append(CTRNN(num_nodes, genome, connection_array))
 
-        new_environment = Environment(true_signal, pop_size)
+            ctrnn = CTRNN(num_nodes, genome, connection_array)
+            ctrnn.fitness_valid = fitness_valid
+            ctrnn.last_fitness = last_fitness
+            individuals.append(ctrnn)
+
+        new_environment = Environment(target_signal, pop_size)
         new_environment.fill_individuals(num_nodes, connection_array, individuals)
 
         return new_environment

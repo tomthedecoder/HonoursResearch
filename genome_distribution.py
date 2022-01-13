@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 def genome_distribution(filename="state_file"):
@@ -8,8 +7,8 @@ def genome_distribution(filename="state_file"):
     with open(filename, "r") as read_file:
         contents = read_file.readlines()
 
-    pop_size = int(contents[0])
     num_nodes = int(contents[1])
+    num_weights = len(contents[3].split(" ")) - 1
 
     weight_counts = []
     biases_counts = []
@@ -21,10 +20,14 @@ def genome_distribution(filename="state_file"):
         for idx, char in enumerate(genome):
             if char == " ":
                 numbers_so_far += 1
-                # find proper count dict
-                if numbers_so_far <= num_nodes ** 2:
+                # ignore the first two
+                if numbers_so_far <= 2:
+                    num = ""
+                    continue
+                # find proper count array
+                if numbers_so_far-2 <= num_weights:
                     weight_counts.append(float(num))
-                elif num_nodes ** 2 < numbers_so_far <= num_nodes ** 2 + num_nodes:
+                elif num_weights < numbers_so_far-2 <= num_weights + num_nodes:
                     taus_counts.append(float(num))
                 else:
                     biases_counts.append(float(num))
