@@ -1,10 +1,11 @@
 import numpy as np
 from CTRNN import CTRNN
 import inspect
-from os import path
+
 
 class Environment:
-    def __init__(self, target_signal, pop_size=3, weight_high=10, weight_low=-10, tau_low=0, tau_high=1, bias_low=-5, bias_high=5, center_crossing=False, mutation_chance=0.9):
+    def __init__(self, target_signal, pop_size=3, weight_high=2, weight_low=-2, tau_low=0, tau_high=1, bias_low=-5,
+                 bias_high=5, input_weight_low=0, input_weight_high=2, center_crossing=False, mutation_chance=0.9):
         """ A container, which holds individuals of the environment, methods for evolution and parameters of the
             experiment initialises individuals along some Gaussian distribution or takes a pre-existing array of
             individuals"""
@@ -19,9 +20,11 @@ class Environment:
         self.tau_high = tau_high
         self.bias_high = bias_high
         self.bias_low = bias_low
+        self.input_weight_low = input_weight_low
+        self.input_weight_high = input_weight_high
         self.center_crossing = center_crossing
 
-        self.mutation_coefficient = 0.2
+        self.mutation_coefficient = 0.1
 
         self.individuals = []
 
@@ -51,11 +54,11 @@ class Environment:
                     ctrnn.set_forcing(0)
                     for weight_i in range(ctrnn.num_weights):
                         i, j = connection_array[weight_i]
-                        biases[i-1] = ctrnn.get_forcing(weight_i)
+                        biases[i - 1] = ctrnn.get_forcing(weight_i)
                         for weight in ctrnn.weights:
                             if weight.traveled_to() == i:
-                                biases[i-1] += weight.value
-                        biases[i-1] /= 2
+                                biases[i - 1] += weight.value
+                        biases[i - 1] /= 2
 
                 self.individuals.append(ctrnn)
         else:
@@ -67,11 +70,13 @@ class Environment:
         num_weights = len(connection_array)
 
         weights = np.random.uniform(self.weight_low, self.weight_high, size=num_weights)
-        taus = np.random.uniform(self.tau_low+0.01, self.tau_high, size=num_nodes)
+        taus = np.random.uniform(self.tau_low + 0.01, self.tau_high, size=num_nodes)
         biases = np.random.uniform(self.bias_low, self.bias_high, size=num_nodes)
+        input_weights = np.random.uniform(self.input_weight_low, self.input_weight_high, size=num_nodes)
 
         genome = np.append(weights, taus)
         genome = np.append(genome, biases)
+        genome = np.append(genome, input_weights)
 
         return genome
 
@@ -90,21 +95,22 @@ class Environment:
         # assign random value from proper distribution
         if pos <= individual.num_nodes ** 2 - 1:
             mutation_distance = direction * self.mutation_coefficient * (self.weight_high - self.weight_low)
-            individual.set_parameter(pos, mutation_distance)
-        elif individual.num_nodes ** 2 - 1 < pos <= individual.num_nodes ** 2 + individual.num_nodes - 1:
+        elif pos <= individual.num_nodes ** 2 + individual.num_nodes - 1:
             mutation_distance = direction * self.mutation_coefficient * (self.tau_high - self.tau_low)
-            individual.set_parameter(pos, mutation_distance)
-            if individual.genome[pos] == 0:
-                individual.set_parameter(pos, 0.001)
-        else:
+            if mutation_distance == 0:
+                mutation_distance = 0.001
+        elif pos <= individual.num_nodes ** 2 + 2*individual.num_nodes - 1:
             mutation_distance = direction * self.mutation_coefficient * (self.bias_high - self.bias_low)
-            individual.set_parameter(pos, mutation_distance)
+        else:
+            mutation_distance = direction * self.mutation_coefficient * (self.input_weight_high - self.input_weight_low)
+
+        individual.set_parameter(pos, mutation_distance)
 
     def rank(self, final_t, fitness_type):
         """ Assign rank between 0 and 2 to each individual in the environment. The fitter an individual the higher
             it's rank"""
 
-        step_size = 1/self.pop_size
+        step_size = 1 / self.pop_size
 
         # assess fitness levels
         for idx, individual in enumerate(self.individuals):
@@ -124,7 +130,7 @@ class Environment:
         self.rank(final_t, fitness_type)
 
         # get lower and upper third
-        l = int(np.floor(1/3 * len(self.individuals)))
+        l = int(np.floor(1 / 3 * len(self.individuals)))
         lower_third = self.individuals[0:l]
         length = len(self.individuals)
 
@@ -212,7 +218,7 @@ class Environment:
 
         pop_size = int(contents[0])
         num_nodes = int(contents[1])
-        target_signal = eval(contents[2][contents[2].find(" ", 2)+2:].strip())
+        target_signal = eval(contents[2][contents[2].find(" ", 2) + 2:].strip())
 
         # line contains connection array
         line = contents[3].split()
@@ -220,7 +226,7 @@ class Environment:
         for item in line:
             p = int(item.find(","))
             i = int(item[0:p])
-            j = int(item[p+1:].strip())
+            j = int(item[p + 1:].strip())
             connection_array.append((i, j))
 
         # get genomes
@@ -230,7 +236,7 @@ class Environment:
 
             # add fitness valid, fitness true
             p1 = line.find(" ")
-            p2 = line.find(" ", p1+1)
+            p2 = line.find(" ", p1 + 1)
             fitness_valid = bool(line[0:p1])
             last_fitness = float(line[p1:p2])
 
@@ -253,12 +259,3 @@ class Environment:
         new_environment.fill_individuals(num_nodes, connection_array, individuals)
 
         return new_environment
-
-
-
-
-
-
-
-
-

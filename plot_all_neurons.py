@@ -25,7 +25,6 @@ def plot_all_neurons(ctrnn, final_t=10, step_size=0.01):
         plt.xlabel("Time(t)")
         plt.ylabel("Output(y)")
         plt.plot(times, y_output)
-        plt.show()
         return
 
     # maximum of 5 nodes to one plot
@@ -49,6 +48,4 @@ def plot_all_neurons(ctrnn, final_t=10, step_size=0.01):
                 axs[node].set_ylabel("Output(y)")
                 axs[node].grid()
         nodes_plotted += nodes_in_plot
-        plt.show()
-
 

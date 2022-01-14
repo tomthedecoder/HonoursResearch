@@ -1,49 +1,40 @@
 import matplotlib.pyplot as plt
 
 
-def genome_distribution(filename="state_file"):
+def genome_distribution(environment):
     """ Reads from the state file and displays a distribution of genomes"""
 
-    with open(filename, "r") as read_file:
-        contents = read_file.readlines()
-
-    num_nodes = int(contents[1])
-    num_weights = len(contents[3].split(" ")) - 1
+    num_nodes = environment.individuals[0].num_nodes
+    num_weights = environment.individuals[0].num_weights
 
     weight_counts = []
     biases_counts = []
     taus_counts = []
+    input_weight_counts = []
 
-    for ln, genome in enumerate(contents[4:]):
-        num = ""
-        numbers_so_far = 0
-        for idx, char in enumerate(genome):
-            if char == " ":
-                numbers_so_far += 1
-                # ignore the first two
-                if numbers_so_far <= 2:
-                    num = ""
-                    continue
-                # find proper count array
-                if numbers_so_far-2 <= num_weights:
-                    weight_counts.append(float(num))
-                elif num_weights < numbers_so_far-2 <= num_weights + num_nodes:
-                    taus_counts.append(float(num))
-                else:
-                    biases_counts.append(float(num))
+    for individual in environment.individuals:
+        genome = individual.genome
+        for idx, gene in enumerate(genome):
+            # find proper count array
+            if idx <= num_weights-1:
+                weight_counts.append(gene)
+            elif idx <= num_weights + num_nodes-1:
+                taus_counts.append(gene)
+            elif idx <= num_weights + 2 * num_nodes-1:
+                biases_counts.append(gene)
+            else:
+                input_weight_counts.append(gene)
 
-                # add count
-                num = ""
-            num += char
+    fig1, axs1 = plt.subplots(2)
+    fig2, axs2 = plt.subplots(2)
 
-    fig, axs = plt.subplots(3)
+    axs1[0].set_title("Weights")
+    axs1[1].set_title("Biases")
+    axs2[0].set_title("Taus")
+    axs2[1].set_title("Input Weights")
 
-    axs[0].set_title("Weights")
-    axs[1].set_title("Biases")
-    axs[2].set_title("Taus")
+    axs1[0].boxplot(weight_counts, vert=False)
+    axs1[1].boxplot(biases_counts, vert=False)
+    axs2[0].boxplot(taus_counts, vert=False)
+    axs2[1].boxplot(input_weight_counts, vert=False)
 
-    axs[0].boxplot(weight_counts, vert=False)
-    axs[1].boxplot(biases_counts, vert=False)
-    axs[2].boxplot(taus_counts, vert=False)
-
-    plt.show()

@@ -51,11 +51,12 @@ class CTRNN(Individual):
             i, j = self.connection_array[idx]
             self.weights.append(Weight(i, j, weight))
 
-        self.taus = self.genome[self.num_weights:self.num_weights + self.num_nodes]
-        self.biases = self.genome[self.num_weights + self.num_nodes:]
+        self.taus = np.array(self.genome[self.num_weights:self.num_weights + self.num_nodes])
+        self.biases = np.array(self.genome[self.num_weights + self.num_nodes:self.num_weights + 2 * self.num_nodes])
+        self.forcing_weights = np.array(self.genome[self.num_weights + 2 * self.num_nodes:])
 
-        # there are self.num_nodes taus and biases
-        self.num_genes = self.num_weights + 2 * self.num_nodes
+        # there are self.num_nodes taus and biases and input weights
+        self.num_genes = self.num_weights + 3 * self.num_nodes
 
         # array of node values
         self.node_values = np.array(0.0 * np.random.randn(self.num_nodes), dtype=np.float32)
@@ -92,12 +93,14 @@ class CTRNN(Individual):
         """ Sets the forcing term of node i to value"""
 
         for idx in range(self.num_nodes):
-            self.forcing[idx] = self.input_signals[idx % self.num_inputs](t)
+            self.forcing[idx] = 0
+            for idy in range(self.num_inputs):
+                self.forcing[idx] += self.forcing_weights[idy] * self.input_signals[idy](t)
 
     def get_forcing(self, node_i):
         """ Returns the forcing term for node_i"""
 
-        return self.forcing[node_i % self.num_inputs]
+        return self.forcing[node_i]
 
     def node_value(self, node_i):
         """ Returns value of node_i"""
@@ -114,7 +117,7 @@ class CTRNN(Individual):
             to_node = weight.traveled_to() - 1
             sigmoid_terms[to_node] += weight.value * sigmoid(self.node_values[from_node] + self.biases[from_node])
 
-        self.derivatives = (-self.node_values + sigmoid_terms + self.forcing) / self.taus
+        self.derivatives = (-self.node_values + sigmoid_terms + self.forcing_weights * self.forcing) / self.taus
 
         return self.derivatives
 
@@ -137,8 +140,10 @@ class CTRNN(Individual):
             self.weights[pos] = Weight(i_existing, j_existing, new_value)
         elif self.num_weights - 1 < pos <= self.num_weights + self.num_nodes - 1:
             self.taus[pos - self.num_weights] = new_value
-        elif self.num_weights + self.num_nodes - 1 <= pos:
+        elif self.num_weights + self.num_nodes - 1 <= pos < self.num_weights + 2 * self.num_nodes - 1:
             self.biases[pos - self.num_weights - self.num_nodes] = new_value
+        elif self.num_weights + 2 * self.num_nodes - 1 <= pos:
+            self.forcing_weights[pos - self.num_weights - 2 * self.num_nodes] = new_value
         else:
             raise IndexError("Index exceeds number of parameter in CTRNN")
 

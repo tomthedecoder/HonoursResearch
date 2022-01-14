@@ -1,42 +1,45 @@
 from Environment import *
-import numpy as np
-import matplotlib.pyplot as plt
-from os import path
-from sys import stdout
+from Distribution import Distribution
 from plot_all_neurons import plot_all_neurons
 from genome_distribution import genome_distribution
+from sys import stdout
 from time import time
+import numpy as np
+import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     """ Set up and run"""
 
     def ts(t):
-        return np.sin(2 * t)
+        return np.sin(t)
 
     target_signal = lambda t: ts(t)
 
     # probability that cross over will occur between demes
     cross_over_probability = 0.75
-    num_demes = 5
+    num_demes = 2
     demes = []
 
-    load = True
-    if path.exists("state_file") and load:
-        environment = Environment.load_environment("state_file")
-        environment.target_signal = target_signal
+    num_nodes = 1
+    connectivity_array = None
+
+    load = False
+    if load:
+        for i in range(num_demes):
+            environment = Environment.load_environment(i)
+            environment.target_signal = target_signal
+            demes.append(environment)
     else:
         for _ in range(num_demes):
-            environment = Environment(target_signal=target_signal, pop_size=50, mutation_chance=0.01, center_crossing=False)
-            num_nodes = 4
-            connectivity_array = None
+            environment = Environment(target_signal=target_signal, pop_size=50, mutation_chance=0.90, center_crossing=False)
             environment.fill_individuals(num_nodes=num_nodes, connection_array=connectivity_array)
             demes.append(environment)
 
     stdout.write("environments have been loaded, beginning run\n")
 
     final_t = np.ceil(12*np.pi)
-    num_generations = 4000
-    num_iterations = 100
+    num_generations = 50
+    num_iterations = 10
 
     best_fitness = []
     average_fitness = []
@@ -44,26 +47,28 @@ if __name__ == "__main__":
 
     start_time = time()
 
+
     for i in range(num_generations):
         # average fitness is the average across all demes
         generation_average_fitness = 0
-        strongest_individual_fitness = -np.Infinity
+        strongest_individual_fitness = np.Infinity
 
-        for deme_index, environment in enumerate(demes):
-            mc, cc = np.random.uniform(0, 1, 2)
-            if mc >= 1 - environment.mutation_chance:
+        for environment_index, environment in enumerate(demes):
+            mutation_chance, cross_over_chance = np.random.uniform(0, 1, 2)
+            if mutation_chance >= 1 - environment.mutation_chance:
                 environment.mutate()
 
             last_strongest = environment.individuals[-1]
-            if cc >= 1 - cross_over_probability:
+            if cross_over_chance >= 1 - cross_over_probability and False:
                 environment = demes[np.random.randint(0, num_demes)]
-                individual = environment.individuals[np.random.randint(0, environment.pop_size)]
-                last_strongest.cross_over(individual, "microbial", 0.5)
-            else:
-                environment.weakest_individual_reproduction(final_t, cross_over_type="microbial", fitness_type="simpsons")
+                j = np.random.randint(1, environment.pop_size)
+                individual = environment.individuals[j]
+                environment.individuals[j] = last_strongest.cross_over(individual, "microbial", 0.5)
+
+            environment.weakest_individual_reproduction(final_t, cross_over_type="microbial", fitness_type="simpsons")
 
             if last_strongest != environment.individuals[-1] and i > 0:
-                stdout.write(f"change in strongest of deme {deme_index} has occurred at iteration {i}\n")
+                stdout.write(f"change in strongest of environment {environment_index} has occurred at iteration {i}\n")
 
             if strongest_individual_fitness > last_strongest.last_fitness:
                 strongest_individual_fitness = last_strongest.last_fitness
@@ -83,22 +88,26 @@ if __name__ == "__main__":
     end_time = time()
     stdout.write(f"run finished for {num_generations} iterations, runtime is {end_time - start_time} seconds\n")
 
+    stdout.write("ranking individuals\n")
     # perform rank on individuals across all demes
     for environment in demes:
         environment.rank(final_t, "simpsons")
+    stdout.write("individuals ranked\n")
 
     # save the state of demes
     stdout.write("saving state\n")
-    for environment in demes:
-        environment.save_state()
+    for index, environment in enumerate(demes):
+        environment.save_state(index)
     stdout.write("state has been saved\n")
 
     # get best ctrnn across all environments in demes
-    strongest_individual_fitness = demes[0].individuals[-1].last_fitness
-    best_ctrnn = demes[0].individuals[-1]
+    best_environment = demes[0]
+    best_ctrnn = best_environment.individuals[-1]
+    strongest_individual_fitness = best_ctrnn.last_fitness
     for environment in demes:
         local_best_ctrnn = environment.individuals[-1]
         if strongest_individual_fitness > local_best_ctrnn.last_fitness:
+            best_environment = environment
             strongest_individual_fitness = local_best_ctrnn.last_fitness
             best_ctrnn = local_best_ctrnn
 
@@ -120,6 +129,25 @@ if __name__ == "__main__":
         times.append(DT * idx)
         y_target.append(target_signal(times[-1]))
 
+    if num_nodes > 1:
+        plot_all_neurons(best_ctrnn, final_t=final_t, step_size=DT)
+
+    genome_distribution(best_environment)
+    if num_generations > 0:
+        plt.figure()
+        plt.grid()
+        plt.plot(generations, best_fitness, 'b')
+        plt.title('Fitness Of Best Individual')
+        plt.xlabel('Generation')
+        plt.ylabel('Fitness')
+
+        plt.figure()
+        plt.grid()
+        plt.plot(generations, average_fitness, 'g')
+        plt.title('Fitness Of Average Individual')
+        plt.xlabel('Generation')
+        plt.ylabel('Fitness')
+
     plt.figure()
     plt.grid()
     plt.plot(times, y_target, 'b')
@@ -129,30 +157,7 @@ if __name__ == "__main__":
     plt.xlabel("Time(t)")
     plt.ylabel("Output(y)")
 
-    plt.figure()
-    plt.grid()
-    plt.plot(generations, best_fitness, 'b')
-    plt.title('Fitness Of Best Individual')
-    plt.xlabel('Generation')
-    plt.ylabel('Fitness')
-
-    plt.figure()
-    plt.grid()
-    plt.plot(generations, average_fitness, 'g')
-    plt.title('Fitness Of Average Individual')
-    plt.xlabel('Generation')
-    plt.ylabel('Fitness')
-
-    # number of sample points
-    N = 800
-    # spacing between points
-    T = 1.0/N
-
-    # calls plt.show() for all the above plots
-    plot_all_neurons(best_ctrnn, final_t=final_t, step_size=DT)
-
-    # display genome distribution by reading from state file
-    genome_distribution()
+    plt.show()
 
 
 
