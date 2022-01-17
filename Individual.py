@@ -15,6 +15,9 @@ class Individual(object):
         def I2(t):
             return np.cos(t)
 
+        def I3(t):
+            return 1
+
         self.input_signals = [I1]
         self.num_inputs = len(self.input_signals)
 
@@ -46,24 +49,24 @@ class Individual(object):
 
         return new_individual
 
-    def microbial_cross_over(self, weakest_individual, change_ratio):
+    def microbial_cross_over(self, other_individual, change_ratio):
         """ Performs microbial cross-over; some fraction of the weakest individual's genome is replaced by one of the
             stronger individual's genome"""
 
-        length = len(weakest_individual.genome)
+        length = len(other_individual.genome)
         num_swaps = np.ceil(change_ratio * length)
         for _ in range(int(num_swaps)):
             pos = np.random.randint(0, length)
             for _ in range(100):
-                if weakest_individual.genome[pos] != self.genome[pos]:
+                if other_individual.genome[pos] != self.genome[pos]:
                     break
                 pos = np.random.randint(0, length)
 
-            weakest_individual.set_parameter(pos, self.genome[pos])
+            other_individual.set_parameter(pos, self.genome[pos])
 
-        weakest_individual.fitness_valid = False
+        other_individual.fitness_valid = False
 
-        return weakest_individual
+        return other_individual
 
     def cross_over(self, individual, cross_over_type="microbial", *args):
         """ Hook method for cross-over"""
@@ -88,6 +91,7 @@ class Individual(object):
             raise ValueError("Invalid fitness type")
 
         self.fitness_valid = True
+        self.last_fitness = fitness
         return fitness
 
     def sample_fitness(self, target_signal, final_t):

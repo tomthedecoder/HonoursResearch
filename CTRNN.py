@@ -53,13 +53,14 @@ class CTRNN(Individual):
 
         self.taus = np.array(self.genome[self.num_weights:self.num_weights + self.num_nodes])
         self.biases = np.array(self.genome[self.num_weights + self.num_nodes:self.num_weights + 2 * self.num_nodes])
-        self.forcing_weights = np.array(self.genome[self.num_weights + 2 * self.num_nodes:])
+        self.forcing_weights = np.array(self.genome[self.num_weights + 2 * self.num_nodes:self.num_weights])
+        #self.gains = np.array
 
         # there are self.num_nodes taus and biases and input weights
         self.num_genes = self.num_weights + 3 * self.num_nodes
 
         # array of node values
-        self.node_values = np.array(0.0 * np.random.randn(self.num_nodes), dtype=np.float32)
+        self.node_values = np.array(np.zeros(self.num_nodes), dtype=np.float32)
 
         # array of derivatives w.r.t time for each node
         self.derivatives = np.array(np.zeros(self.num_nodes), dtype=np.float32)
@@ -118,13 +119,14 @@ class CTRNN(Individual):
             sigmoid_terms[to_node] += weight.value * sigmoid(self.node_values[from_node] + self.biases[from_node])
 
         self.derivatives = (-self.node_values + sigmoid_terms + self.forcing_weights * self.forcing) / self.taus
-
+        #print(self.forcing_weights)
         return self.derivatives
 
     def update(self):
         """ Updates the value of each node"""
 
         self.calculate_derivative()
+        #print(self.derivatives, self.node_values)
         self.node_values += self.derivatives * self.step_size
 
         for index in range(self.num_nodes):

@@ -15,6 +15,12 @@ def Dsigmoid(x):
     return sigmoid(x)*(1 - sigmoid(x))
 
 
+def n_neuron(t, y, W, T, B):
+    """ Simulates output for a n neuron network"""
+
+    return 1/T * (-y + W * sigmoid(y + B) + I(t))
+
+
 def two_neuron(t, y, W, T, B):
     """" Two neuron system"""""
 
@@ -33,17 +39,17 @@ def one_neuron_synaptic(t, y, w, b, tau):
 
 
 y0 = [0, 0]
-W = [[1, 0.42561895337358324],
-     [-1, -1.676084230734908]]
-B = [0.9468674242841031, 0.5911299159988552]
-T = [0.485746038528897, 0.03630363856686625]
+W = [[1, 0],
+     [0, 1]]
+B = [5, 5]
+T = [1, 1]
 
 t_space = np.linspace(0, 12 * np.pi, 4000)
-target_signal = lambda t: np.sin(t)
+target_signal = lambda t: np.cos(t)
 y = target_signal(t_space)
 
 #sol = solve_ivp(two_neuron, t_span=(0, t_space[-1]), y0=[0, 0], method='RK45', args=(W, T, B), t_eval=t_space, dense_output=True, max_step=0.01)
-sol = solve_ivp(one_neuron, t_span=(0, t_space[-1]), y0=[0], method='RK45', args=(1, 5, 2), t_eval=t_space, dense_output=True, max_step=0.01)
+#sol = solve_ivp(one_neuron, t_span=(0, t_space[-1]), y0=[0], method='RK45', args=(1, 3, -1), t_eval=t_space, dense_output=True, max_step=0.01)
 
 """plt.figure()
 plt.plot(sol.y[0], sol.y[1], 'b', label='y(t)')
@@ -65,13 +71,7 @@ plt.grid()
 plt.show()
 
 
-plt.figure()
-plt.plot(solver1.t, solver1.y[0])
-#plt.plot(solver2.t, solver2.y[0])
-plt.plot(times, y)
-plt.legend(['Output', 'Target'])
-plt.title("Single Neuron")
-plt.grid()
+
 
 
 

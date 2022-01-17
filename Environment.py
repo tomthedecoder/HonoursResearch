@@ -1,33 +1,21 @@
 import numpy as np
 from CTRNN import CTRNN
+from Distribution import Distribution
 import inspect
 
 
 class Environment:
-    def __init__(self, target_signal, pop_size=3, weight_high=2, weight_low=-2, tau_low=0, tau_high=1, bias_low=-5,
-                 bias_high=5, input_weight_low=0, input_weight_high=2, center_crossing=False, mutation_chance=0.9):
+    def __init__(self, target_signal, distribution, pop_size=3, center_crossing=False, mutation_chance=0.9):
         """ A container, which holds individuals of the environment, methods for evolution and parameters of the
             experiment initialises individuals along some Gaussian distribution or takes a pre-existing array of
             individuals"""
 
         self.pop_size = pop_size
         self.mutation_chance = mutation_chance
-
-        # ranges for the uniform distribution
-        self.weight_high = weight_high
-        self.weight_low = weight_low
-        self.tau_low = tau_low
-        self.tau_high = tau_high
-        self.bias_high = bias_high
-        self.bias_low = bias_low
-        self.input_weight_low = input_weight_low
-        self.input_weight_high = input_weight_high
+        self.distribution = distribution
         self.center_crossing = center_crossing
-
-        self.mutation_coefficient = 0.1
-
+        self.mutation_coefficient = 0.05
         self.individuals = []
-
         self.target_signal = target_signal
 
     def fill_individuals(self, num_nodes, connection_array=None, individuals=None):
@@ -69,10 +57,10 @@ class Environment:
 
         num_weights = len(connection_array)
 
-        weights = np.random.uniform(self.weight_low, self.weight_high, size=num_weights)
-        taus = np.random.uniform(self.tau_low + 0.01, self.tau_high, size=num_nodes)
-        biases = np.random.uniform(self.bias_low, self.bias_high, size=num_nodes)
-        input_weights = np.random.uniform(self.input_weight_low, self.input_weight_high, size=num_nodes)
+        weights = self.distribution.uniform(0, num_weights)
+        taus = self.distribution.uniform(1, num_nodes)
+        biases = self.distribution.uniform(2, num_nodes)
+        input_weights = self.distribution.uniform(3, num_nodes)
 
         genome = np.append(weights, taus)
         genome = np.append(genome, biases)
@@ -84,7 +72,7 @@ class Environment:
         """ Preforms mutation on a random part of the genome of a random individual by drawing from the
             respective distribution"""
 
-        index = np.random.randint(1, self.pop_size)
+        index = np.random.randint(0, self.pop_size-1)
         individual = self.individuals[index]
 
         genome_length = len(individual.genome)
@@ -94,17 +82,17 @@ class Environment:
 
         # assign random value from proper distribution
         if pos <= individual.num_nodes ** 2 - 1:
-            mutation_distance = direction * self.mutation_coefficient * (self.weight_high - self.weight_low)
+            mutation_distance = direction * self.mutation_coefficient * self.distribution.range(0)
         elif pos <= individual.num_nodes ** 2 + individual.num_nodes - 1:
-            mutation_distance = direction * self.mutation_coefficient * (self.tau_high - self.tau_low)
+            mutation_distance = direction * self.mutation_coefficient * self.distribution.range(1)
             if mutation_distance == 0:
                 mutation_distance = 0.001
         elif pos <= individual.num_nodes ** 2 + 2*individual.num_nodes - 1:
-            mutation_distance = direction * self.mutation_coefficient * (self.bias_high - self.bias_low)
+            mutation_distance = direction * self.mutation_coefficient * self.distribution.range(2)
         else:
-            mutation_distance = direction * self.mutation_coefficient * (self.input_weight_high - self.input_weight_low)
+            mutation_distance = direction * self.mutation_coefficient * self.distribution.range(3)
 
-        individual.set_parameter(pos, mutation_distance)
+        individual.set_parameter(pos, individual.genome[pos] + mutation_distance)
 
     def rank(self, final_t, fitness_type):
         """ Assign rank between 0 and 2 to each individual in the environment. The fitter an individual the higher
@@ -164,13 +152,14 @@ class Environment:
         if cross_over_type == "normal":
             self.individuals[0] = best_individual.normal_cross_over(second_individual)
         elif cross_over_type == "microbial":
-            self.individuals[0] = best_individual.microbial_cross_over(weakest_individual, change_ratio=0.25)
+            self.individuals[0] = best_individual.microbial_cross_over(weakest_individual, change_ratio=0.5)
 
     def save_state(self, environment_index, state_file="state_file"):
         """ Writes genome and connection matrix of CTRNN to file. Format is
         # number of individuals
         # connection matrix
         # the true signal and then
+        # distribution parameters
         # _
         # fitness_valid, last_fitness, genome
         # _
@@ -195,6 +184,9 @@ class Environment:
             contents += "{},{} ".format(i, j)
         contents += '\n'
 
+        # distribution parameters
+        contents += f"{str(self.distribution)}\n"
+
         # add fitness_valid, fitness, genome to write string
         for idx, individual in enumerate(self.individuals):
             str_individual = f"{individual.fitness_valid} {individual.last_fitness} "
@@ -218,7 +210,8 @@ class Environment:
 
         pop_size = int(contents[0])
         num_nodes = int(contents[1])
-        target_signal = eval(contents[2][contents[2].find(" ", 2) + 2:].strip())
+#       target_signal = eval(contents[2][contents[2].find(" ", 2) + 2:].strip())
+        target_signal = lambda t: np.sin(t)
 
         # line contains connection array
         line = contents[3].split()
@@ -229,9 +222,15 @@ class Environment:
             j = int(item[p + 1:].strip())
             connection_array.append((i, j))
 
+        # contains the parameters for the distribution
+        parameters = [float(x) for x in contents[4].split()]
+        lows = [x for i, x in enumerate(parameters) if i % 2 == 0]
+        highs = [x for i, x in enumerate(parameters) if i % 2 == 1]
+        distribution = Distribution(lows, highs)
+
         # get genomes
         individuals = []
-        for line in contents[4:]:
+        for line in contents[5:]:
             genome = []
 
             # add fitness valid, fitness true
@@ -255,7 +254,7 @@ class Environment:
             ctrnn.last_fitness = last_fitness
             individuals.append(ctrnn)
 
-        new_environment = Environment(target_signal, pop_size)
+        new_environment = Environment(target_signal, distribution, pop_size)
         new_environment.fill_individuals(num_nodes, connection_array, individuals)
 
         return new_environment
