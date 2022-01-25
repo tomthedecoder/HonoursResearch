@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def plot_all_neurons(ctrnn, final_t=10, step_size=0.01):
+def plot_all_neurons(ctrnn, final_t=10):
     """ Outputs a plot of each neuron"""
 
     if ctrnn.num_nodes <= 0:
@@ -10,13 +10,8 @@ def plot_all_neurons(ctrnn, final_t=10, step_size=0.01):
 
     # reset ctrnn
     ctrnn.reset()
-    ctrnn.step_size = step_size
 
-    y_output = ctrnn.evaluate(final_t=final_t)
-
-    times = []
-    for idx in range(int(final_t/step_size)):
-        times.append(idx * step_size)
+    times, y_output = ctrnn.evaluate(final_t=final_t)
 
     if ctrnn.num_nodes == 1:
         plt.figure()

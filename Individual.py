@@ -12,12 +12,6 @@ class Individual(object):
         def I1(t):
             return np.sin(t)
 
-        def I2(t):
-            return np.cos(t)
-
-        def I3(t):
-            return 1
-
         self.input_signals = [I1]
         self.num_inputs = len(self.input_signals)
 
@@ -116,17 +110,15 @@ class Individual(object):
 
         import scipy.integrate as sci
 
-        step_size = 0.01
-        num_samples = int(final_t / step_size)
         t = []
         y = []
 
-        E = self.evaluate(final_t)
-        for idx in range(num_samples):
-            t.append(idx * step_size)
-            y.append(abs(E[idx] - target_signal(t[-1])))
+        times, predictions = self.evaluate(final_t)
+        for idx, value in enumerate(predictions):
+            t.append(times[idx])
+            y.append(abs(value - target_signal(times[idx])))
 
-        return np.float(sci.simps(y=y, x=t))
+        return np.float(sci.simpson(y=y, x=t))
 
     def set_rank(self, new_rank):
         self.rank_score = new_rank
@@ -137,7 +129,7 @@ class Individual(object):
     def evaluate(self, *args):
         """ Evaluate the individual, i.e assess it's behaviour subject to constraint(s) *args"""
 
-        pass
+        return []
 
     def set_parameter(self, pos, new_value):
         """ Sets the parameter at index pos to new_value"""

@@ -1,26 +1,24 @@
 from Environment import Environment
-from Distribution import Distribution
+from Distribution import *
 from plot_all_neurons import plot_all_neurons
-from genome_distribution import genome_distribution
+from genome_distribution import *
 from sys import stdout
 from time import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-# True 6.189763684283798 0.2888151902249554 0.3389540365826371 0.0014337711891763139 -0.9193451699551511 -0.9311019000065877 0.5971595357971116 0.9854802881753641 0.4526070780700566 0.8218117211634968 0.6170409845322968 0.7914348937737903 -0.8758224067915814 -0.3609363364306375 -0.0007035658009828527 0.6704859890347352 -0.220070362115518 0.6843016681104344 -0.03818007409973534 0.9557705192552659 -0.833428706529816 0.9202280019883518 0.5648972455310335 -0.8390453422502151 -0.8018667118528571 0.5112379303758579 1.4131278827204015 1.4786706617118477 1.5428651279497059 1.740358474249942 1.5535640439764604 -0.5255655513775392 -0.03771191527361606 0.7532472634396161 0.011421522104198445 0.4582009599520509 0.6668571852390509 0.39516787740502907 -0.6374476731715055 0.7215981919501118 -0.510573978179276
 
-
-def get_lows_highs(num_demes):
+def uniform_parameters(num_demes=0):
     """ returns lows and highs arrays for distribution class based off maximum values of parameters"""
 
     tau_low = 0
-    tau_high = 3
-    bias_low = -5
-    bias_high = 5
-    weight_low = -5
-    weight_high = 5
-    input_weight_low = -4
-    input_weight_high = 4
+    tau_high = 1
+    bias_low = -1
+    bias_high = 1
+    weight_low = -2
+    weight_high = 2
+    input_weight_low = 0
+    input_weight_high = 1
 
     lows = []
     highs = []
@@ -39,7 +37,11 @@ def get_lows_highs(num_demes):
         highs[-1].append(bias_low + (idx + 1) * (bias_high - bias_low)/num_demes)
         highs[-1].append(input_weight_low + (idx + 1) * (input_weight_high - input_weight_low)/num_demes)
 
-    return lows, highs
+    return [weight_low, tau_low, bias_low, input_weight_low], [weight_high, tau_high, bias_high, input_weight_high]
+
+
+def poisson_parameters(num_demes=0):
+    return [10, 1, 5, 5]
 
 
 if __name__ == "__main__":
@@ -56,20 +58,21 @@ if __name__ == "__main__":
 
     # probability that cross over will occur between demes
     cross_over_probability = 0.5
-    num_demes = 5
-    num_nodes = 5
+    num_demes = 1
+    num_nodes = 2
     connectivity_array = None
     demes = []
 
-    final_t = np.ceil(3*np.pi)
+    final_t = np.ceil(12*np.pi)
     fitness_type = "simpsons"
     cross_over_type = "microbial"
-    num_generations = 250
-    num_runs = 4
+    num_generations = 1
+    num_runs = 1
 
-    lows, highs = get_lows_highs(num_demes)
+    lows, highs = uniform_parameters()
+    lambdas = poisson_parameters()
 
-    load = True
+    load = False
     if load:
         for _ in range(num_runs):
             demes.append([])
@@ -81,8 +84,9 @@ if __name__ == "__main__":
         for _ in range(num_runs):
             demes.append([])
             for i in range(num_demes):
-                distribution = Distribution(lows[i], highs[i])
-                environment = Environment(target_signal, distribution, 200, False, 0.90)
+                #distribution = Uniform([lows, highs])
+                distribution = Poisson(lambdas)
+                environment = Environment(target_signal, distribution, 50, False, 0.90)
                 environment.rank(final_t, fitness_type)
                 environment.fill_individuals(num_nodes, connectivity_array)
                 demes[-1].append(environment)
@@ -116,14 +120,14 @@ if __name__ == "__main__":
 
             # run algorithm on each environment
             for environment_index, environment in enumerate(demes[run_id]):
-                mutation_chance, cross_over_chance = np.random.uniform(0, 1, 2)
-                if mutation_chance >= 1 - environment.mutation_chance:
+                mc, cc = np.random.uniform(0, 1, 2)
+                if mc >= 1 - environment.mutation_chance:
                     environment.mutate()
 
                 environment.weakest_individual_reproduction(final_t, cross_over_type, fitness_type)
 
                 last_strongest = environment.individuals[-1]
-                if cross_over_chance >= 1 - cross_over_probability:
+                if cc >= 1 - cross_over_probability:
                     environment = demes[run_id][np.random.randint(0, num_demes)]
                     j = np.random.randint(0, environment.pop_size-1)
                     individual = environment.individuals[j]
@@ -161,21 +165,16 @@ if __name__ == "__main__":
 
     best_ctrnn.reset()
 
-    times = []
     y_target = []
-    DT = 0.01
-
-    best_ctrnn.step_size = DT
-    y_output = best_ctrnn.evaluate(final_t=final_t)
-
-    for idx in range(int(final_t/DT)):
-        times.append(DT * idx)
-        y_target.append(target_signal(times[-1]))
+    times, y_output = best_ctrnn.evaluate(final_t=final_t)
+    for t in times:
+        y_target.append(target_signal(t))
 
     if num_nodes > 1:
-        plot_all_neurons(best_ctrnn, final_t=final_t, step_size=DT)
+        plot_all_neurons(best_ctrnn, final_t)
 
-    genome_distribution(best_environment)
+    #box_plot(best_environment)
+    plot_distribution(best_environment)
     if num_generations > 2:
         generations = [i+1 for i in range(num_generations)]
 

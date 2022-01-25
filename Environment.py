@@ -1,6 +1,6 @@
 import numpy as np
 from CTRNN import CTRNN
-from Distribution import Distribution
+from Distribution import *
 import inspect
 
 
@@ -14,7 +14,7 @@ class Environment:
         self.mutation_chance = mutation_chance
         self.distribution = distribution
         self.center_crossing = center_crossing
-        self.mutation_coefficient = 0.05
+        self.mutation_coefficient = 0.1
         self.individuals = []
         self.target_signal = target_signal
 
@@ -42,11 +42,11 @@ class Environment:
                     ctrnn.set_forcing(0)
                     for weight_i in range(ctrnn.num_weights):
                         i, j = connection_array[weight_i]
-                        biases[i - 1] = ctrnn.get_forcing(weight_i)
+                        biases[i - 1] = ctrnn.forcing_weights[i - 1] * ctrnn.get_forcing(i - 1)
                         for weight in ctrnn.weights:
-                            if weight.traveled_to() == i:
+                            if weight.i() == i:
                                 biases[i - 1] += weight.value
-                        biases[i - 1] /= 2
+                        biases[i - 1] /= -2
 
                 self.individuals.append(ctrnn)
         else:
@@ -57,14 +57,16 @@ class Environment:
 
         num_weights = len(connection_array)
 
-        weights = self.distribution.uniform(0, num_weights)
-        taus = self.distribution.uniform(1, num_nodes)
-        biases = self.distribution.uniform(2, num_nodes)
-        input_weights = self.distribution.uniform(3, num_nodes)
+        weights = self.distribution.sample_weights(num_weights, connection_array)
+        taus = self.distribution.sample_other(1, num_nodes)
+        biases = self.distribution.sample_other(2, num_nodes)
+        input_weights = self.distribution.sample_other(3, num_nodes)
+        shift = self.distribution.sample_shift()
 
         genome = np.append(weights, taus)
         genome = np.append(genome, biases)
         genome = np.append(genome, input_weights)
+        genome = np.append(genome, shift)
 
         return genome
 
@@ -77,20 +79,22 @@ class Environment:
 
         genome_length = len(individual.genome)
         pos = np.random.randint(0, genome_length)
-        mutation_distance = 0
         direction = [-1, 1][np.random.randint(0, 2)]
 
         # assign random value from proper distribution
-        if pos <= individual.num_nodes ** 2 - 1:
-            mutation_distance = direction * self.mutation_coefficient * self.distribution.range(0)
-        elif pos <= individual.num_nodes ** 2 + individual.num_nodes - 1:
-            mutation_distance = direction * self.mutation_coefficient * self.distribution.range(1)
+        mutation_distance = direction * self.mutation_coefficient
+        if pos < individual.num_weights:
+            mutation_distance *= self.distribution.range(0)
+        elif pos < individual.num_weights + individual.num_nodes:
+            mutation_distance *= self.distribution.range(1)
             if mutation_distance == 0:
-                mutation_distance = 0.001
-        elif pos <= individual.num_nodes ** 2 + 2*individual.num_nodes - 1:
-            mutation_distance = direction * self.mutation_coefficient * self.distribution.range(2)
-        else:
-            mutation_distance = direction * self.mutation_coefficient * self.distribution.range(3)
+                mutation_distance = 0.01
+        elif pos < individual.num_weights + 2 * individual.num_nodes:
+            mutation_distance *= self.distribution.range(2)
+        elif pos < individual.num_weights + 3 * individual.num_nodes:
+            mutation_distance *= self.distribution.range(3)
+        elif pos == individual.num_genes - 1:
+            mutation_distance *= self.distribution.range(4)
 
         individual.set_parameter(pos, individual.genome[pos] + mutation_distance)
 
@@ -112,7 +116,7 @@ class Environment:
             new_rank = 2 * (idx + 1) * step_size
             individual.set_rank(new_rank)
 
-    def lower_third_reproduction(self, final_t, cross_over_type="normal", fitness_type="simpsons"):
+    def lower_third_reproduction(self, final_t, cross_over_type="microbial", fitness_type="simpsons"):
         """ Performs a round of reproduction. The lower third is replaced with off-spring from the top third"""
 
         self.rank(final_t, fitness_type)
@@ -152,7 +156,7 @@ class Environment:
         if cross_over_type == "normal":
             self.individuals[0] = best_individual.normal_cross_over(second_individual)
         elif cross_over_type == "microbial":
-            self.individuals[0] = best_individual.microbial_cross_over(weakest_individual, change_ratio=0.5)
+            self.individuals[0] = best_individual.microbial_cross_over(weakest_individual, change_ratio=0.6)
 
     def save_state(self, environment_index, state_file="state_file"):
         """ Writes genome and connection matrix of CTRNN to file. Format is
@@ -185,7 +189,7 @@ class Environment:
         contents += '\n'
 
         # distribution parameters
-        contents += f"{str(self.distribution)}\n"
+        contents += f"{self.distribution.get_type()} {str(self.distribution)}\n"
 
         # add fitness_valid, fitness, genome to write string
         for idx, individual in enumerate(self.individuals):
@@ -223,10 +227,19 @@ class Environment:
             connection_array.append((i, j))
 
         # contains the parameters for the distribution
-        parameters = [float(x) for x in contents[4].split()]
-        lows = [x for i, x in enumerate(parameters) if i % 2 == 0]
-        highs = [x for i, x in enumerate(parameters) if i % 2 == 1]
-        distribution = Distribution(lows, highs)
+        r = contents[4].find(" ")
+        distribution_type = contents[4][0:r].strip()
+        parameters = [float(y) for x in contents[4][r:].split() for y in x.split(',')]
+        if distribution_type == "Uniform":
+            lows = [x for i, x in enumerate(parameters) if i % 2 == 0]
+            highs = [x for i, x in enumerate(parameters) if i % 2 == 1]
+            distribution = Uniform([lows, highs])
+        elif distribution_type == "Poisson":
+            distribution = Poisson(parameters)
+        elif distribution_type == "Gaussian":
+            distribution = Gaussian(parameters)
+        else:
+            raise ValueError("Invalid distribution type in save file")
 
         # get genomes
         individuals = []
