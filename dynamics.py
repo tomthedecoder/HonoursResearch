@@ -3,20 +3,8 @@ import matplotlib.pyplot as plt
 from scipy.linalg import eig
 from scipy.integrate import solve_ivp
 from scipy.optimize import fsolve
+from plot_all_neurons import *
 from CTRNN import CTRNN
-
-
-def two_neuron(t, y, W, T, B, IW):
-    """" Two neuron system"""""
-
-    y1 = (-y[0] + W[0][0] * sigmoid(y[0] + B[0]) + W[1][0] * sigmoid(y[1] + B[1]) + IW[0] * I(t)) / T[0]
-    y2 = (-y[1] + W[0][1] * sigmoid(y[0] + B[0]) + W[1][1] * sigmoid(y[1] + B[1]) + IW[1] * I(t)) / T[1]
-
-    return [y1, y2]
-
-
-def one_neuron(t, y, w, tau, b, iw, g):
-    return (-y + w*sigmoid(g*(y + b)) + iw*I(t)) / tau
 
 
 def sigmoid(x):
@@ -28,7 +16,7 @@ def inverse_sigmoid(y):
 
 
 def I(t):
-    return 0 #np.sin(t)
+    return 1
 
 
 def Dsigmoid(x):
@@ -60,15 +48,34 @@ def J_nullclines(t, W, B):
 
 
 def root_find(t, y, W, T, B, IW, s):
+
+    def inside(array, sub_array):
+        for other_sub in array:
+            num_same = 0
+            for idx, value in enumerate(sub_array):
+                if abs(value - other_sub[idx]) < 0.001:
+                    num_same += 1
+            if num_same == len(sub_array):
+                return True
+
+        return False
+
     num_nodes = len(W)
-    num_iterations = 100
-    tol = 0.1
+    num_iterations = 1000
+    tol = 0.00000001
     roots = np.array([])
 
     for _ in range(num_iterations):
-        y0 = np.random.uniform(-4, 4, num_nodes)
-        maybe_root = fsolve(y_primeb, x0=y0, args=(t, W, T, B, IW, s), fprime=Dy)
-        if np.sum([abs(y[idx]) for idx in range(num_nodes)]) < tol:
+        y0 = np.random.uniform(-6, 6, num_nodes)
+        maybe_root = fsolve(y_primeb, x0=y0, args=(t, W, T, B, IW, s), fprime=Dy, xtol=tol)
+
+        converged = True
+        for val in y_prime(0, np.array(maybe_root), W, T, B, IW, s):
+            if abs(val) > tol:
+                converged = False
+                break
+
+        if converged and not inside(roots, maybe_root):
             if len(roots) == 0:
                 roots = np.array([maybe_root])
             else:
@@ -123,7 +130,7 @@ def y_prime(t, y, W, T, B, IW, s):
         for j in range(num_nodes):
             # shift in coordinates
             if j == num_nodes - 1:
-                bias = B[j] - s/T[j]
+                bias = B[j] - (s/T[j])
             else:
                 bias = B[j]
             sigmoid_terms[i] += W[j][i] * sigmoid(y[j] + bias)
@@ -143,7 +150,7 @@ def y_primeb(y, t, W, T, B, IW, s):
         for j in range(num_nodes):
             # shift in coordinates
             if j == num_nodes - 1:
-                bias = B[j] - s / T[j]
+                bias = B[j] - (s/T[j])
             else:
                 bias = B[j]
             sigmoid_terms[i] += W[j][i] * sigmoid(y[j] + bias)
@@ -157,17 +164,12 @@ def y_primeb(y, t, W, T, B, IW, s):
 final_t = np.ceil(12 * np.pi)
 num_nodes = 2
 
-W = np.array([[2, 0],
-              [0, 2]])
+W = np.array([[4.5, -1],
+              [1, 4.5]])
 T = np.array([1, 1])
-B = np.array([-1, -1])
-IW = np.array([1, 1])
-shift = 0.4
-
-"""W = np.array([[1]])
-T = np.array([1])
-B = [1]
-IW = [1]"""
+B = np.array([-2.75, -1.75])
+IW = np.array([4])
+shift = 0
 
 genome = np.append(W[0], W[1])
 genome = np.append(genome, T)
@@ -180,7 +182,7 @@ for i in range(1, num_nodes+1):
     for j in range(1, num_nodes+1):
         connection_array.append((i, j))
 
-ctrnn = CTRNN(num_nodes, genome, connection_array)
+ctrnn = CTRNN(num_nodes, genome, [lambda t: np.sin(t)], connection_array)
 t_space, output = ctrnn.evaluate(final_t)
 
 target_signal = lambda t: np.sin(2 * t)
@@ -195,7 +197,6 @@ solb = solve_ivp(y_prime, t_span=(0, t_space[-1]), y0=yb, method='RK45', args=(W
 solc = solve_ivp(y_prime, t_span=(0, t_space[-1]), y0=yc, method='RK45', args=(W, T, B, IW, shift), t_eval=t_space, dense_output=True, max_step=0.01)
 
 equilibria = root_find(0, y, W, T, B, IW, shift)
-
 #J1, J2, nullclines = J_nullclines(0, W, B)
 
 plt.figure()
@@ -209,6 +210,7 @@ plt.plot(ctrnn.node_history[0], ctrnn.node_history[1], 'gold')
 
 for point in equilibria:
     plt.plot(point[0], point[1], 'o')
+    print('point', point[0], point[1], 'value', y_prime(0, point, W, T, B, IW, shift))
 
 eigen_values, eigen_vectors = eig(Dy(y, 0, W, T, B, IW, shift))
 
@@ -236,6 +238,8 @@ if plot_eigen_vectors:
 plt.grid()
 plt.legend(["solution #1", "solution #2", "solution #3", "ctrnn"])
 
+plot_all_neurons(ctrnn, final_t)
+
 plt.figure()
 plt.title("J Nullclines")
 plt.xlabel("J1")
@@ -246,6 +250,8 @@ plt.legend(["J1", "J2"])
 plt.legend(["J1", "J2"])
 
 plt.figure()
+plt.plot(t_space, sola.y[-1], '--')
+plt.plot(t_space, solb.y[-1], '--')
 plt.plot(t_space, solc.y[-1], '--')
 #plt.plot(t_space, sol2.y[-1], '--')
 plt.plot(t_space, output, '--')
@@ -253,8 +259,10 @@ plt.plot(t_space, y)
 plt.title("Last Neuron Output")
 plt.xlabel("time(t)")
 plt.ylabel("output(y)")
-plt.legend(["n neuron", "ctrnn", "target"])
+plt.legend(["solution 1", "solution 2", "solution 3", "ctrnn", "target"])
 plt.grid()
+
+
 
 plt.show()
 

@@ -22,6 +22,13 @@ class Environment:
         """ Initialise self.individuals using uniform distributions. If a individual array is provided, simply assign
             this to self.individuals"""
 
+        # input to each node of this individual, input signals are assigned to nodes with index mod the number of inputs
+        def I1(t):
+            return np.sin(t)
+
+        def I2(t):
+            return np.cos(t)
+
         if individuals is None:
             # if no connection array is passed in, put a connection between all nodes
             if connection_array is None:
@@ -33,8 +40,8 @@ class Environment:
             # populate self.individuals with CTRNNs
             self.individuals = []
             for _ in range(self.pop_size):
-                genome = self.make_genome(num_nodes, connection_array)
-                ctrnn = CTRNN(num_nodes, genome, connection_array)
+                genome = self.make_genome(num_nodes, 2, connection_array)
+                ctrnn = CTRNN(num_nodes, genome, np.array([I1, I2]), connection_array)
 
                 # sets biases to center-crossing
                 if self.center_crossing:
@@ -52,16 +59,14 @@ class Environment:
         else:
             self.individuals = individuals
 
-    def make_genome(self, num_nodes, connection_array):
+    def make_genome(self, num_nodes, num_inputs, connection_array):
         """ Generates a new genome from the environment's specifications"""
 
-        num_weights = len(connection_array)
-
-        weights = self.distribution.sample_weights(num_weights, connection_array)
-        taus = self.distribution.sample_other(1, num_nodes)
-        biases = self.distribution.sample_other(2, num_nodes)
-        input_weights = self.distribution.sample_other(3, num_nodes)
-        shift = self.distribution.sample_shift()
+        weights = np.array(self.distribution.sample_weights(connection_array))
+        taus = np.array(self.distribution.sample_other(2, num_nodes))
+        biases = np.array(self.distribution.sample_other(3, num_nodes))
+        input_weights = np.array(self.distribution.sample_other(4, num_nodes * num_inputs))
+        shift = self.distribution.sample_other(5, 1)
 
         genome = np.append(weights, taus)
         genome = np.append(genome, biases)
@@ -77,24 +82,26 @@ class Environment:
         index = np.random.randint(0, self.pop_size-1)
         individual = self.individuals[index]
 
-        genome_length = len(individual.genome)
+        genome_length = individual.num_genes
         pos = np.random.randint(0, genome_length)
         direction = [-1, 1][np.random.randint(0, 2)]
 
         # assign random value from proper distribution
         mutation_distance = direction * self.mutation_coefficient
-        if pos < individual.num_weights:
+        if pos < individual.num_nodes:
             mutation_distance *= self.distribution.range(0)
-        elif pos < individual.num_weights + individual.num_nodes:
+        elif pos < individual.num_weights:
             mutation_distance *= self.distribution.range(1)
+        elif pos < individual.num_weights + individual.num_nodes:
+            mutation_distance *= self.distribution.range(2)
             if mutation_distance == 0:
                 mutation_distance = 0.01
         elif pos < individual.num_weights + 2 * individual.num_nodes:
-            mutation_distance *= self.distribution.range(2)
-        elif pos < individual.num_weights + 3 * individual.num_nodes:
             mutation_distance *= self.distribution.range(3)
-        elif pos == individual.num_genes - 1:
+        elif pos < individual.num_weights + individual.num_nodes * (2 + individual.num_inputs):
             mutation_distance *= self.distribution.range(4)
+        elif pos == individual.num_genes - 1:
+            mutation_distance *= self.distribution.range(5)
 
         individual.set_parameter(pos, individual.genome[pos] + mutation_distance)
 
@@ -228,16 +235,16 @@ class Environment:
 
         # contains the parameters for the distribution
         r = contents[4].find(" ")
-        distribution_type = contents[4][0:r].strip()
+        distribution_type = contents[4][0:r].strip().lower()
         parameters = [float(y) for x in contents[4][r:].split() for y in x.split(',')]
-        if distribution_type == "Uniform":
+        if distribution_type == "uniform":
             lows = [x for i, x in enumerate(parameters) if i % 2 == 0]
             highs = [x for i, x in enumerate(parameters) if i % 2 == 1]
             distribution = Uniform([lows, highs])
-        elif distribution_type == "Poisson":
+        elif distribution_type == "poisson":
             distribution = Poisson(parameters)
-        elif distribution_type == "Gaussian":
-            distribution = Gaussian(parameters)
+        elif distribution_type == "gaussian":
+            distribution = Normal(parameters)
         else:
             raise ValueError("Invalid distribution type in save file")
 
@@ -262,7 +269,7 @@ class Environment:
                     continue
                 num += char
 
-            ctrnn = CTRNN(num_nodes, genome, connection_array)
+            ctrnn = CTRNN(num_nodes, genome, [lambda t: np.sin(t), lambda t: np.cos(t)], connection_array)
             ctrnn.fitness_valid = fitness_valid
             ctrnn.last_fitness = last_fitness
             individuals.append(ctrnn)

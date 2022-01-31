@@ -35,10 +35,10 @@ class Weight:
 
 
 class CTRNN(Individual):
-    def __init__(self, num_nodes, genome, connection_array):
+    def __init__(self, num_nodes, genome, input_signals, connection_array):
         """ Implements a continuous time recurrent neural network"""
 
-        super(CTRNN, self).__init__(genome, num_nodes)
+        super(CTRNN, self).__init__(genome, num_nodes, input_signals)
 
         self.num_nodes = num_nodes
         self.genome = genome
@@ -53,11 +53,13 @@ class CTRNN(Individual):
 
         self.taus = np.array(self.genome[self.num_weights:self.num_weights + self.num_nodes])
         self.biases = np.array(self.genome[self.num_weights + self.num_nodes:self.num_weights + 2 * self.num_nodes])
-        self.forcing_weights = np.array(self.genome[self.num_weights + 2 * self.num_nodes:self.num_weights + 3 * self.num_nodes])
-        self.shift = genome[-1]
+        self.forcing_weights = np.array(
+                                        [self.genome[self.num_weights + 2 * self.num_nodes + i * self.num_inputs:
+                                                     self.num_weights + 2 * self.num_nodes + (i + 1) * self.num_inputs]
+                                            for i in range(self.num_nodes)]
+                                        )
 
-        # there are self.num_nodes taus and biases and input weights
-        self.num_genes = self.num_weights + 3 * self.num_nodes + 1
+        self.shift = genome[-1]
 
         # array of node values
         self.node_values = np.array(np.zeros(self.num_nodes), dtype=np.float32)
@@ -67,13 +69,13 @@ class CTRNN(Individual):
 
         # the input to the nodes
         # in this implementation, input values to all nodes are the same
-        self.forcing = [np.float(0.0) for _ in range(self.num_nodes)]
+        self.forcing = np.array([np.float(0.0) for _ in range(self.num_inputs)])
 
         # value of each node over time steps
         self.node_history = [[] for _ in range(self.num_nodes)]
 
         # step size for euler integration
-        self.step_size = np.float(0.01)
+        self.step_size = np.float(0.1)
 
         # times of evaluation
         self.last_time = np.float(0.0)
@@ -89,8 +91,8 @@ class CTRNN(Individual):
     def set_forcing(self, t):
         """ Sets the forcing term of node i to value"""
 
-        for idx in range(self.num_nodes):
-            self.forcing[idx] = self.input_signals[0](t)
+        for idx in range(self.num_inputs):
+            self.forcing[idx] = self.input_signals[idx](t)
 
     def get_forcing(self, node_i):
         """ Returns the forcing term for node_i"""
@@ -119,7 +121,7 @@ class CTRNN(Individual):
             sigmoid_terms[j] += weight.value * sigmoid(node_values[i] + bias)
 
         self.set_forcing(t)
-        self.derivatives = (-node_values + sigmoid_terms + self.forcing * self.forcing_weights) / (self.taus + 0.01)
+        self.derivatives = np.divide((-node_values + sigmoid_terms + np.matmul(self.forcing_weights, self.forcing)), (self.taus + 0.01))
         self.derivatives[-1] -= self.shift / (self.taus[-1] + 0.01)
 
         return self.derivatives
@@ -136,8 +138,9 @@ class CTRNN(Individual):
             self.taus[pos - self.num_weights] = new_value
         elif pos < self.num_weights + 2 * self.num_nodes:
             self.biases[pos - self.num_weights - self.num_nodes] = new_value
-        elif pos < self.num_weights + 3 * self.num_nodes:
-            self.forcing_weights[pos - self.num_weights - 2 * self.num_nodes] = new_value
+        elif pos < self.num_weights + self.num_nodes * (2 + self.num_inputs):
+            p = pos - self.num_weights - 2 * self.num_nodes
+            self.forcing_weights[p//self.num_inputs][p//self.num_nodes] = new_value
         elif pos == self.num_genes - 1:
             self.shift = new_value
         else:

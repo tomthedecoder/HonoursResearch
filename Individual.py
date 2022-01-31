@@ -2,18 +2,12 @@ import numpy as np
 
 
 class Individual(object):
-    def __init__(self, genome, num_nodes):
+    def __init__(self, genome, num_nodes, input_signals):
         """ An individual of some environment"""
 
         self.genome = genome
+        self.num_genes = len(self.genome)
         self.num_nodes = num_nodes
-
-        # input to each node of this individual, input signals are assigned to nodes with index mod the number of inputs
-        def I1(t):
-            return np.sin(t)
-
-        self.input_signals = [I1]
-        self.num_inputs = len(self.input_signals)
 
         # the linear rank of this individual, relative to fitness of other individuals. Between 0 and 2.
         self.rank_score = 0
@@ -23,6 +17,9 @@ class Individual(object):
 
         # determines if the fitness value still valid
         self.fitness_valid = False
+
+        self.input_signals = input_signals
+        self.num_inputs = len(self.input_signals)
 
     def normal_cross_over(self, other_individual):
         """ Returns a new genotype from uniformly choosing genes from existing two"""

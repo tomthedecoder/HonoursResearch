@@ -1,5 +1,5 @@
 from Environment import Environment
-from Distribution import *
+from Distribution import Distribution
 from plot_all_neurons import plot_all_neurons
 from genome_distribution import *
 from sys import stdout
@@ -8,47 +8,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def uniform_parameters(num_demes=0):
-    """ returns lows and highs arrays for distribution class based off maximum values of parameters"""
-
-    tau_low = 0
-    tau_high = 1
-    bias_low = -1
-    bias_high = 1
-    weight_low = -2
-    weight_high = 2
-    input_weight_low = 0
-    input_weight_high = 1
-
-    lows = []
-    highs = []
-
-    for idx in range(num_demes):
-        lows.append([])
-        highs.append([])
-
-        lows[-1].append(weight_low + idx * (weight_high - weight_low)/num_demes)
-        lows[-1].append(tau_low + idx * (tau_high - tau_low)/num_demes)
-        lows[-1].append(bias_low + idx * (bias_high - bias_low)/num_demes)
-        lows[-1].append(input_weight_low + idx * (input_weight_high - input_weight_low)/num_demes)
-
-        highs[-1].append(weight_low + (idx + 1) * (weight_high - weight_low)/num_demes)
-        highs[-1].append(tau_low + (idx + 1) * (tau_high - tau_low)/num_demes)
-        highs[-1].append(bias_low + (idx + 1) * (bias_high - bias_low)/num_demes)
-        highs[-1].append(input_weight_low + (idx + 1) * (input_weight_high - input_weight_low)/num_demes)
-
-    return [weight_low, tau_low, bias_low, input_weight_low], [weight_high, tau_high, bias_high, input_weight_high]
-
-
-def poisson_parameters(num_demes=0):
-    return [10, 1, 5, 5]
-
-
 if __name__ == "__main__":
     """ Set up and run"""
 
     def ts(t):
-        return np.sin(2 * t)
+        return np.cos(t)
 
     target_signal = lambda t: ts(t)
 
@@ -58,19 +22,21 @@ if __name__ == "__main__":
 
     # probability that cross over will occur between demes
     cross_over_probability = 0.5
-    num_demes = 1
-    num_nodes = 2
+    num_demes = 4
+    num_nodes = 4
     connectivity_array = None
     demes = []
 
     final_t = np.ceil(12*np.pi)
     fitness_type = "simpsons"
     cross_over_type = "microbial"
-    num_generations = 1
-    num_runs = 1
+    distribution_type = "uniform"
+    num_generations = 200
+    num_runs = 5
 
     lows, highs = uniform_parameters()
     lambdas = poisson_parameters()
+    mus, stds = normal_parameters()
 
     load = False
     if load:
@@ -84,9 +50,8 @@ if __name__ == "__main__":
         for _ in range(num_runs):
             demes.append([])
             for i in range(num_demes):
-                #distribution = Uniform([lows, highs])
-                distribution = Poisson(lambdas)
-                environment = Environment(target_signal, distribution, 50, False, 0.90)
+                distribution = Distribution.make_distribution(distribution_type)
+                environment = Environment(target_signal, distribution, 200, False, 0.90)
                 environment.rank(final_t, fitness_type)
                 environment.fill_individuals(num_nodes, connectivity_array)
                 demes[-1].append(environment)
@@ -157,7 +122,15 @@ if __name__ == "__main__":
         environment.save_state(index)
     stdout.write("state has been saved\n")
 
-    stdout.write(f"best ctrnn has fitness {best_ctrnn.last_fitness} and genome {best_ctrnn.genome}\n")
+    stdout.write(f"best ctrnn has fitness {best_ctrnn.last_fitness}\nbest ctrnn weights ")
+
+    for weight in best_ctrnn.weights:
+        stdout.write(f"{weight} ")
+
+    stdout.write(f"\nbest ctrnn taus {best_ctrnn.taus}\n")
+    stdout.write(f"best ctrnn biases {best_ctrnn.biases}\n")
+    stdout.write(f"best ctrnn forcing weights {best_ctrnn.forcing_weights}\n")
+    stdout.write(f"best ctrnn shift {best_ctrnn.shift}\n")
 
     ###################
     # Plot best ctrnn #
@@ -173,8 +146,8 @@ if __name__ == "__main__":
     if num_nodes > 1:
         plot_all_neurons(best_ctrnn, final_t)
 
-    #box_plot(best_environment)
-    plot_distribution(best_environment)
+    box_plot(best_environment)
+    #plot_distribution(best_environment)
     if num_generations > 2:
         generations = [i+1 for i in range(num_generations)]
 

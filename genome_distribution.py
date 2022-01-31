@@ -46,13 +46,14 @@ def plot_distribution(environment):
     def add_to_counts(parameter, count_array, partition_distance):
         """ adds the parameter to the correct count slot"""
 
-        placement = int(parameter * partition_distance)
+        placement = int(parameter // partition_distance)
 
         # search count array for parameter
         found = False
-        for idx, pos, count in enumerate(count_array):
+        for idx, item in enumerate(count_array):
+            pos, count = item
             if placement == pos:
-                count_array[idx] = count + 1
+                count_array[idx][1] = count + 1
                 found = True
                 break
         if not found:
@@ -70,23 +71,23 @@ def plot_distribution(environment):
 
         return placements, ratios
 
-    partition_distance = 0.05
+    partition_distance = 0.1
 
     weight_counts = []
     tau_counts = []
     bias_counts = []
-    input_weight_counts = []
+    forcing_weight_counts = []
 
     # get count arrays
     for ctrnn in environment.individuals:
         for weight in ctrnn.weights:
             add_to_counts(weight.value, weight_counts, partition_distance)
         for tau in ctrnn.taus:
-            add_to_counts(tau_counts, tau, partition_distance)
+            add_to_counts(tau, tau_counts, partition_distance)
         for bias in ctrnn.biases:
-            add_to_counts(bias_counts, bias, partition_distance)
-        for input_weights in ctrnn.input_weights:
-            add_to_counts(input_weight_counts, input_weights, partition_distance)
+            add_to_counts(bias, bias_counts, partition_distance)
+        for forcing_weight in ctrnn.forcing_weights:
+            add_to_counts(forcing_weight, forcing_weight_counts, partition_distance)
 
     # ratio arrays
     total_weights = environment.pop_size * environment.individuals[0].num_weights
@@ -95,8 +96,30 @@ def plot_distribution(environment):
     weight_placements, weight_ratios = scale_array(weight_counts, total_weights)
     tau_placements, tau_ratios = scale_array(tau_counts, total_num)
     bias_placements, bias_ratios = scale_array(bias_counts, total_num)
-    input_weight_placements, input_weight_ratios = scale_array(input_weight_counts, total_num)
+    input_weight_placements, input_weight_ratios = scale_array(forcing_weight_counts, total_num)
 
     plt.figure()
-    plt.plot(weight_placements, weight_ratios)
+    plt.title("Weight Distribution")
     plt.plot(weight_placements, weight_ratios, 'o')
+
+    plt.figure()
+    plt.title("Tau Distribution")
+    plt.plot(tau_placements, tau_ratios, 'o')
+
+    plt.figure()
+    plt.title("Bias Distribution")
+    plt.plot(bias_placements, bias_ratios, 'o')
+
+    plt.figure()
+    plt.title("Input Weights Distribution")
+    plt.plot(input_weight_placements, input_weight_ratios, 'o')
+
+    plt.show()
+
+
+test = False
+if test:
+    from Environment import *
+
+    environment = Environment.load_environment(1)
+    plot_distribution(environment)
