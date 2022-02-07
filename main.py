@@ -1,59 +1,36 @@
-from Environment import Environment
-from Distribution import Distribution
-from plot_all_neurons import plot_all_neurons
-from genome_distribution import *
-from sys import stdout
-from time import time
-import numpy as np
-import matplotlib.pyplot as plt
-
 
 if __name__ == "__main__":
     """ Set up and run"""
 
+    from variables import *
+
     def ts(t):
-        return np.cos(t)
+        return np.sin(2 * t)
 
     target_signal = lambda t: ts(t)
 
-    #################################################
-    # Set up parameters and initialize environments #
-    #################################################
-
-    # probability that cross over will occur between demes
-    cross_over_probability = 0.5
-    num_demes = 4
-    num_nodes = 4
-    connectivity_array = None
-    demes = []
-
-    final_t = np.ceil(12*np.pi)
-    fitness_type = "simpsons"
-    cross_over_type = "microbial"
-    distribution_type = "uniform"
-    num_generations = 200
-    num_runs = 5
-
-    lows, highs = uniform_parameters()
-    lambdas = poisson_parameters()
-    mus, stds = normal_parameters()
+    ###########################
+    # Initialize environments #
+    ###########################
 
     load = False
     if load:
         for _ in range(num_runs):
             demes.append([])
             for i in range(num_demes):
-                environment = Environment.load_environment(i)
+                environment = Environment.load_environment(i, forcing_signals)
                 environment.target_signal = target_signal
                 demes[-1].append(environment)
     else:
         for _ in range(num_runs):
             demes.append([])
+            distribution = Distribution.make_distribution(distribution_type)
+            output_handler = OutputHandler(handler_type)
+            ctrnn_structure = CTRNNStructure(distribution, num_nodes, connection_type=connection_type, center_crossing=True)
             for i in range(num_demes):
-                distribution = Distribution.make_distribution(distribution_type)
-                environment = Environment(target_signal, distribution, 200, False, 0.90)
+                environment = Environment(target_signal, ctrnn_structure, pop_size=pop_size, mutation_chance=mutation_chance)
                 environment.rank(final_t, fitness_type)
-                environment.fill_individuals(num_nodes, connectivity_array)
+                environment.fill_individuals(output_handler, forcing_signals)
                 demes[-1].append(environment)
 
     stdout.write("environments have been loaded, beginning run\n")
@@ -124,13 +101,12 @@ if __name__ == "__main__":
 
     stdout.write(f"best ctrnn has fitness {best_ctrnn.last_fitness}\nbest ctrnn weights ")
 
-    for weight in best_ctrnn.weights:
+    for weight in best_ctrnn.params.weights:
         stdout.write(f"{weight} ")
 
-    stdout.write(f"\nbest ctrnn taus {best_ctrnn.taus}\n")
-    stdout.write(f"best ctrnn biases {best_ctrnn.biases}\n")
-    stdout.write(f"best ctrnn forcing weights {best_ctrnn.forcing_weights}\n")
-    stdout.write(f"best ctrnn shift {best_ctrnn.shift}\n")
+    stdout.write(f"\nbest ctrnn taus {best_ctrnn.params.taus}\n")
+    stdout.write(f"best ctrnn biases {best_ctrnn.params.biases}\n")
+    stdout.write(f"best ctrnn forcing weights {best_ctrnn.params.forcing_weights}\n")
 
     ###################
     # Plot best ctrnn #

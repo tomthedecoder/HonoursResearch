@@ -6,17 +6,17 @@ def uniform_parameters():
     """ Returns lows and highs arrays for distribution class based off maximum values of parameters"""
 
     tau_low = 0
-    tau_high = 1
-    bias_low = -2
-    bias_high = 2
-    diag_weight_low = -5
-    diag_weight_high = 5
-    off_weight_low = -1.5
-    off_weight_high = 1.5
-    input_weight_low = 0
+    tau_high = 3
+    bias_low = -10
+    bias_high = 0
+    diag_weight_low = 0
+    diag_weight_high = 10
+    off_weight_low = -1
+    off_weight_high = 1
+    input_weight_low = 1
     input_weight_high = 2
-    shift_low = 0.01
-    shift_high = 0.5
+    shift_low = 0
+    shift_high = 0.6
 
     return [[diag_weight_low, off_weight_low, tau_low, bias_low, input_weight_low, shift_low],
             [diag_weight_high, off_weight_high, tau_high, bias_high, input_weight_high, shift_high]]

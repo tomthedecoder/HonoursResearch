@@ -71,8 +71,8 @@ class LookUpTable:
 
         self.table = {}
 
-        if path.exists("lookup"):
-            with open("lookup", "r") as reader:
+        if path.exists("../lookup"):
+            with open("../lookup", "r") as reader:
                 all_lines = reader.readlines()
                 for idx in range(0, len(all_lines), 4):
                     fid = float(all_lines[idx])
@@ -121,7 +121,7 @@ class LookUpTable:
 
             table += f"{fid}\n{ctrnn.num_nodes}\n{genome}\n{connection_array}\n"
 
-        with open("lookup", "w") as writer:
+        with open("../lookup", "w") as writer:
             writer.write(table)
 
     def __iter__(self):
