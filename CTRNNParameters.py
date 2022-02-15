@@ -4,16 +4,11 @@ from Weight import Weight
 import numpy as np
 
 
-@dataclass(unsafe_hash=True)
 class CTRNNParameters:
-    output_handler: OutputHandler
-    forcing_signals: np.array
-    genome: np.array
-
-    def __init__(self, genome, oh, fs, connection_array):
+    def __init__(self, genome, output_handler, forcing_signals, connection_array):
         self.genome = genome
-        self.output_handler = oh
-        self.forcing_signals = fs
+        self.output_handler = output_handler
+        self.forcing_signals = forcing_signals
 
         self.num_nodes = len(self.forcing_signals)
         self.num_forcing = len(self.forcing_signals[0])
@@ -35,6 +30,7 @@ class CTRNNParameters:
     def set_parameter(self, pos, new_value):
         """ Sets the parameter at pos to the new parameter"""
 
+        self.genome[pos] = new_value
         if pos < self.num_weights:
             i_existing = self.weights[pos].i
             j_existing = self.weights[pos].j
@@ -48,5 +44,3 @@ class CTRNNParameters:
             self.forcing_weights[p // self.num_forcing][p // self.num_nodes] = new_value
         else:
             raise IndexError("Index exceeds number of parameter in CTRNN")
-
-

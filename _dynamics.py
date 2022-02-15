@@ -2,17 +2,15 @@ from scipy.linalg import eig
 from scipy.integrate import solve_ivp
 from scipy.optimize import root
 from itertools import combinations
-import numpy as np
-from OutputHandler import *
-from CTRNNParameters import *
-from CTRNNStructure import *
-from CTRNN import *
-from plot_all_neurons import *
-import matplotlib.pyplot as plt
+from variables import *
 
 
 def sigmoid(x):
-    return 1/(1 + np.exp(-x))
+    try:
+        x = np.divide(1.0, (np.add(1.0, np.exp(-x))))
+        return x
+    except:
+        return 0.0
 
 
 def inverse_sigmoid(y):
@@ -24,7 +22,7 @@ def Dsigmoid(x):
 
 
 def I(t):
-    return 0
+    return np.sin(t)
 
 
 def J_prime(t, J, W, T, B, IW):
@@ -51,7 +49,7 @@ def J_nullclines(t, W, B):
     return J1, J2, nullclines
 
 
-def root_find(t, y, W, T, B, IW, s):
+def root_find(t, y, W, T, B, IW):
 
     def inside(array, sub_array):
         for other_sub in array:
@@ -71,7 +69,7 @@ def root_find(t, y, W, T, B, IW, s):
 
     for _ in range(num_iterations):
         y0 = np.random.uniform(-10, 10, num_nodes)
-        opti_solve = root(y_primeb, x0=y0, args=(t, W, T, B, IW, s), jac=Dy, tol=tol)
+        opti_solve = root(y_primeb, x0=y0, args=(t, W, T, B, IW), jac=Dy, tol=tol)
         maybe_root = opti_solve.x
         #print(maybe_root, y_prime(t, maybe_root, W, T, B, IW, s))
         if opti_solve.success and not inside(roots, maybe_root):
@@ -119,7 +117,7 @@ def y_nullclines(t, W, B, IW):
     return np.array(domains), np.array(nullclines)
 
 
-def Dy(y, t, W, T, B, IW, s):
+def Dy(y, t, W, T, B, IW):
     """ Jaccobian of y_prime"""
 
     n = len(W)
@@ -127,83 +125,57 @@ def Dy(y, t, W, T, B, IW, s):
     return np.array(jacc)
 
 
-def y_prime(t, y, W, T, B, IW, s):
+def y_prime(t, y, W, T, B, IW):
     """ Simulates output for an n neuron network"""
 
-    num_nodes = len(W)
-    sigmoid_terms = np.array([0.0 for _ in range(len(W))])
-    for i in range(num_nodes):
-        for j in range(num_nodes):
-            sigmoid_terms[i] += W[j][i] * sigmoid(y[j] + B[j])
-
-    derivative = (-y + sigmoid_terms + IW * I(t)) / T
-    derivative[-1] -= s/T[-1]
-
-    return derivative
+    return (-y + np.matmul(W, sigmoid(y + B)) + IW * I(t)) / T
 
 
-def y_primeb(y, t, W, T, B, IW, s):
+def y_primeb(y, t, W, T, B, IW):
     """ Simulates output for an n neuron network"""
 
-    num_nodes = len(W)
-    sigmoid_terms = np.array([0.0 for _ in range(len(W))])
-    for i in range(num_nodes):
-        for j in range(num_nodes):
-            # shift in coordinates
-            if j == num_nodes - 1:
-                bias = B[j] - (s/T[j])
-            else:
-                bias = B[j]
-            sigmoid_terms[i] += W[j][i] * sigmoid(y[j] + bias)
-
-    derivative = (-y + sigmoid_terms + IW * I(t)) / T
-    derivative[-1] -= s / T[-1]
-
-    return derivative
+    return y_prime(t, y, W, T, B, IW)
 
 
 ########################
 # Parameters for CTRNN #
 ########################
 
-final_t = np.ceil(6 * np.pi)
+final_t = np.ceil(4 * np.pi)
 num_nodes = 3
 
-W = np.array([[5, -1, 1],
-              [1, 7, -1],
-              [1, 0.0, 6]])
-T = np.array([1, 2.5, 1])
-B = np.array([-4.108, -2.787, -1.114])
-IW = np.array([1, 1, 1])
-shift = 0.0
+W = np.array([[0, 0, 0],
+              [0, 0, 0],
+              [0, 0, 0]])
+T = np.array([1, 0.25, 1])
+B = np.array([0, 0, 0])
+IW = np.array([2, 2, 2])
 
 genome = np.append(W[0], W[1])
 genome = np.append(genome, W[2])
 genome = np.append(genome, T)
 genome = np.append(genome, B)
 genome = np.append(genome, IW)
-genome = np.append(genome, shift)
 
 connection_array = [(i, j) for i in range(num_nodes) for j in range(num_nodes)]
 forcing_signals = make_signals(num_nodes, [lambda t: np.sin(t)])
 
-output_handler = OutputHandler("max/min")
+output_handler = OutputHandler("default")
 params = CTRNNParameters(genome, output_handler, forcing_signals, connection_array)
 ctrnn = CTRNN(params)
 t_space, output = ctrnn.evaluate(final_t)
 
-target_signal = lambda t: np.sin(2 * t)
+target_signal = lambda t: np.sin(t)
 y = target_signal(t_space)
 
 initial_conditions = np.array([[0.0, 0.0, 0.0]])
 solutions = []
 for y0 in initial_conditions:
-    solutions.append(solve_ivp(y_prime, t_span=(0, t_space[-1]), y0=y0, method='RK45', args=(W, T, B, IW, shift),
-                                        t_eval=t_space, dense_output=True, max_step=0.01))
+    solutions.append(solve_ivp(y_prime, t_span=(0, t_space[-1]), y0=y0, method='RK45', args=(W, T, B, IW), t_eval=t_space, dense_output=True, max_step=0.05))
 
-equilibria = root_find(0, y, W, T, B, IW, shift)
-domain, nullclines = y_nullclines(0, W, B, IW)
-eigen_values, eigen_vectors = eig(Dy(y, 0, W, T, B, IW, shift))
+equilibria = root_find(0, y, W, T, B, IW)
+#domain, nullclines = y_nullclines(0, W, B, IW)
+eigen_values, eigen_vectors = eig(Dy(y, 0, W, T, B, IW))
 
 fig = plt.figure()
 axs = fig.add_subplot(projection='3d')
@@ -221,7 +193,7 @@ elif num_nodes == 3:
     axs.plot(ctrnn.node_history[0], ctrnn.node_history[1], ctrnn.node_history[2], 'gold')
 
 for point in equilibria:
-    eigen_values, eigen_vectors = eig(Dy(point, 0, W, T, B, IW, shift))
+    eigen_values, eigen_vectors = eig(Dy(point, 0, W, T, B, IW))
     negative_counts = 0
     positive_counts = 0
     zero_counts = 0
@@ -247,7 +219,7 @@ for point in equilibria:
     else:
         color = "orange"
 
-    axs.plot(point[0], point[1], point[2], 'o', color=color)
+    axs.plot(point[0], point[1], 'o', color=color)
     print(f"equilibria at {point} has eigen values {eigen_values}")
 
 plot_eigen_vectors = False
@@ -282,21 +254,22 @@ axs.legend(["solution #1", "solution #2", "solution #3", "ctrnn"])
 fig = plt.figure()
 axs = fig.add_subplot(projection='3d')
 # synaptic input space nullclines for num_nodes == 2
-if num_nodes == 2:
+if num_nodes == 2 and False:
+    J1, J2, nullclines = J_nullclines(0, W, B)
     plt.title("J Nullclines")
     plt.xlabel("J1")
     plt.ylabel("J2")
     plt.legend(["J1", "J2"])
-    #plt.plot(J1, nullclines[0])
-    #plt.plot(nullclines[1], J2)
+    plt.plot(J1, nullclines[0])
+    plt.plot(nullclines[1], J2)
 elif num_nodes == 3:
     axs.set_title("Y Nullclines")
     axs.set_xlabel("y1")
     axs.set_ylabel("y2")
     axs.set_zlabel("y3")
-    axs.scatter(nullclines[0], domain[0][0], domain[0][1], marker='o')
-    axs.scatter(domain[1][0], nullclines[1], domain[1][1], marker='^')
-    axs.scatter(domain[2][0], domain[2][1], nullclines[2], marker='x')
+    #axs.scatter(nullclines[0], domain[0][0], domain[0][1], marker='o')
+    #axs.scatter(domain[1][0], nullclines[1], domain[1][1], marker='^')
+    #axs.scatter(domain[2][0], domain[2][1], nullclines[2], marker='x')
 
 plot_all_neurons(ctrnn, final_t)
 

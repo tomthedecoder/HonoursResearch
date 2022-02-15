@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.fft import fft, fftfreq
 import matplotlib.pyplot as plt
 from os import path
 from CTRNN import CTRNN
@@ -126,52 +125,3 @@ class LookUpTable:
 
     def __iter__(self):
         return iter(self.table)
-
-
-test_table = False
-if test_table:
-    table = LookUpTable()
-
-    # add ctrnn to table
-    num_nodes = 1
-    genome = [1, 1, 1]
-    connectivity_array = [(0, 0)]
-
-    ctrnn = CTRNN(num_nodes, genome, connectivity_array)
-    fid = 1
-
-    table.add(fid, ctrnn)
-    table.save()
-
-make_file = True
-if make_file:
-    table = LookUpTable()
-
-    def target_signal(t):
-        return np.sin(t) + np.sin(2*t)
-
-    # Number of sample points
-    N = 10000
-
-    # sample spacing
-    T = 5 * np.floor(np.pi) / 2*N
-    t = np.linspace(0.0, N * T, N, endpoint=False)
-    y = target_signal(t)
-    yf = fft(y)
-    xf = fftfreq(N, T)[:N // 2]
-    plot_points = 2.0 / N * np.abs(yf[0:N // 2])
-
-    plt.figure()
-    plt.subplot(211)
-    plt.plot(xf, plot_points, color='tab:blue', marker='o')
-    plt.plot(xf, plot_points, color='black')
-
-    plt.subplot(212)
-    plt.plot(t, y, color='tab:orange')
-
-    plt.show()
-
-    # add peek ids to table, but no ctrnns!
-
-    for fid in fourier_ids(plot_points):
-        table.add(fid, "instance")

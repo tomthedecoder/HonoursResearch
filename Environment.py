@@ -8,19 +8,19 @@ import inspect
 
 class Environment:
     def __init__(self, target_signal, ctrnn_structure, pop_size=3, mutation_chance=0.9):
-        """ A container, which holds individuals of the environment, methods for evolution and parameters of the
-            experiment initialises individuals along some Gaussian distribution or takes a pre-existing array of
-            individuals"""
+        """ A container, which holds individuals. Uses methods for evolution and holds parameters of the
+            experiment. Initialises individuals with specified distribution or takes existing array of individuals"""
 
         self.pop_size = pop_size
         self.mutation_chance = mutation_chance
         self.struct = ctrnn_structure
-        self.mutation_coefficient = 0.1
+        self.mutation_coefficient = 0.05
         self.individuals = []
         self.target_signal = target_signal
+        self.mutation_variance = 0.2
 
     def fill_individuals(self, output_handler=None, forcing_signals=None, individuals=None):
-        """ Initialise self.individuals using uniform distributions. If a individual array is provided, simply assign
+        """ Initialise self.individuals using uniform distributions. If an individual array is provided, simply assign
             this to self.individuals"""
 
         if individuals is None and (output_handler is None or forcing_signals is None):
@@ -49,8 +49,6 @@ class Environment:
             biases = np.array([0.0 for _ in range(self.struct.num_nodes)])
             for wi, weight in enumerate(weights):
                 i, j = self.struct.connection_array[wi]
-                i -= 1
-                j -= 1
                 biases[j] += weight
             biases = np.divide(biases, -2)
         else:
@@ -66,6 +64,9 @@ class Environment:
         """ Preforms mutation on a random part of the genome of a random individual by drawing from the
             respective distribution"""
 
+        def is_int(number):
+            return number == int(number)
+
         index = np.random.randint(0, self.pop_size-1)
         individual = self.individuals[index]
 
@@ -75,14 +76,12 @@ class Environment:
 
         # assign random value from proper distribution
         mutation_distance = direction * self.mutation_coefficient
-        if pos < individual.params.num_nodes:
+        if pos < individual.params.num_weights and self.struct.connection_array[pos][0] == self.struct.connection_array[pos][1]:
             mutation_distance *= self.struct.distribution.range(0)
         elif pos < individual.params.num_weights:
             mutation_distance *= self.struct.distribution.range(1)
         elif pos < individual.params.num_weights + individual.params.num_nodes:
             mutation_distance *= self.struct.distribution.range(2)
-            if mutation_distance == 0:
-                mutation_distance = 0.01
         elif pos < individual.params.num_weights + 2 * individual.params.num_nodes:
             mutation_distance *= self.struct.distribution.range(3)
         elif pos < individual.params.num_weights + individual.params.num_nodes * (2 + individual.params.num_forcing):
@@ -91,12 +90,12 @@ class Environment:
         individual.params.set_parameter(pos, individual.params.genome[pos] + mutation_distance)
 
     def rank(self, final_t, fitness_type):
-        """ Assign rank between 0 and 2 to each individual in the environment. The fitter an individual the higher
-            it's rank"""
+        """ Assign rank between 0 and 2 to each individual in the environment and sort the individual array, with the
+            highest ranked individuals at the end of the array."""
 
         step_size = 1 / self.pop_size
 
-        # assess fitness levels
+        # assess fitness levels, assign true fitness
         for idx, individual in enumerate(self.individuals):
             self.individuals[idx].last_fitness = individual.fitness(self.target_signal, fitness_type, final_t)
 
@@ -109,7 +108,7 @@ class Environment:
             individual.rank = new_rank
 
     def lower_third_reproduction(self, final_t, cross_over_type="microbial", fitness_type="simpsons"):
-        """ Performs a round of reproduction. The lower third is replaced with off-spring from the top third"""
+        """ Performs a round of reproduction. The lower third is replaced with off-spring from the top third."""
 
         self.rank(final_t, fitness_type)
 
@@ -137,7 +136,8 @@ class Environment:
             self.individuals[idx] = new_individual
 
     def weakest_individual_reproduction(self, final_t, cross_over_type="normal", fitness_type="simpsons"):
-        """ Replaces the weakest individual with child of best two"""
+        """ Replaces the weakest individual with the individual returned from cross-over. Fitness type specifies
+            which heuristic is used to determine an individual's fitness"""
 
         self.rank(final_t, fitness_type)
 
@@ -152,14 +152,15 @@ class Environment:
 
     def save_state(self, environment_index, state_file="state_file"):
         """ Writes genome and connection matrix of CTRNN to file. Format is
-        # number of individuals
-        # connection matrix
-        # the true signal and then
-        # distribution parameters
-        # _
-        # fitness_valid, last_fitness, genome
-        # _
-        # for every individual"""
+            # number of individuals
+            # number of nodes
+            # target signal
+            # connection matrix
+            # output handler's method
+            # is center-crossing enabled
+            # distribution type and it's parameters
+            # [for every individual] fitness_valid, last_fitness, genome
+        """
 
         state_file = f"{state_file}{environment_index}"
 
@@ -207,7 +208,9 @@ class Environment:
 
     @staticmethod
     def load_environment(environment_index, forcing_signals, state_file="state_file"):
-        """ Returns an environment filled with CTRNNs from a saved state"""
+        """ Returns an environment filled with CTRNNs from a saved state, environment index helps to identify save file.
+            forcing signals is an argument because I ran into trouble with the inspect library and never went back to
+            fix it"""
 
         state_file = f"{state_file}{environment_index}"
 

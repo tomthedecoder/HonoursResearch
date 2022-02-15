@@ -1,7 +1,7 @@
 import numpy as np
 from Individual import Individual
 from CTRNNParameters import CTRNNParameters
-from CTRNNStructure import CTRNNStructure
+
 
 """"
 Contributors to the CTRNN class:
@@ -11,9 +11,13 @@ Mathew Egbert
 
 
 def sigmoid(x):
-    """ sigmoid activation function"""
+    """ Sigmoid activation function"""
 
-    return 1.0 / (1.0 + np.exp(-x))
+    try:
+        x = np.divide(1.0, (np.add(1.0, np.exp(-x))))
+        return x
+    except:
+        return 0.0
 
 
 class CTRNN(Individual):
@@ -45,7 +49,7 @@ class CTRNN(Individual):
         self.last_time = np.float(0.0)
 
     def set_forcing(self, t):
-        """ Sets the forcing term of node i to value"""
+        """ Compute total input going to each neuron"""
 
         for i in range(self.params.num_nodes):
             self.forcing[i] = 0.0
@@ -59,19 +63,16 @@ class CTRNN(Individual):
 
         # calculate the weight * sigmoid terms for each node
         for weight in self.params.weights:
-            i, j = weight.i - 1, weight.j - 1
-            sigmoid_terms[j] += weight.value * sigmoid(node_values[i] + self.params.biases[i])
+            i, j = weight.i, weight.j
+            sigmoid_terms[i] += weight.value * sigmoid(node_values[j] + self.params.biases[j])
 
         self.set_forcing(t)
-        self.derivatives = np.divide((-node_values
-                                      + sigmoid_terms
-                                      + self.forcing),
-                                      (self.params.taus + 0.001))
+        self.derivatives = np.divide((-node_values + sigmoid_terms + self.forcing), self.params.taus)
 
         return self.derivatives
 
     def evaluate(self, final_t):
-        """ Gets CTRNN output by euler-step method. Assumes that the last node is the output node"""
+        """ Gets CTRNN output by RK45 method. Assumes that the last node is the output node"""
 
         from scipy.integrate import solve_ivp
 
@@ -85,6 +86,7 @@ class CTRNN(Individual):
                              method='RK45', t_eval=t_space,
                              dense_output=True, max_step=self.step_size)
         self.node_history = solution.y
+
         return solution.t, self.params.output_handler.call(self.node_history[-1])
 
 

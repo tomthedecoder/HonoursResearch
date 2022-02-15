@@ -5,21 +5,19 @@ from dataclasses import dataclass, field
 def uniform_parameters():
     """ Returns lows and highs arrays for distribution class based off maximum values of parameters"""
 
-    tau_low = 0
-    tau_high = 3
-    bias_low = -10
-    bias_high = 0
-    diag_weight_low = 0
-    diag_weight_high = 10
-    off_weight_low = -1
-    off_weight_high = 1
-    input_weight_low = 1
-    input_weight_high = 2
-    shift_low = 0
-    shift_high = 0.6
+    tau_low = 0.5
+    tau_high = 5
+    bias_low = -16
+    bias_high = 16
+    diag_weight_low = -16
+    diag_weight_high = 16
+    off_weight_low = -16
+    off_weight_high = 16
+    input_weight_low = -0.8
+    input_weight_high = 0.8
 
-    return [[diag_weight_low, off_weight_low, tau_low, bias_low, input_weight_low, shift_low],
-            [diag_weight_high, off_weight_high, tau_high, bias_high, input_weight_high, shift_high]]
+    return [[diag_weight_low, off_weight_low, tau_low, bias_low, input_weight_low],
+            [diag_weight_high, off_weight_high, tau_high, bias_high, input_weight_high]]
 
 
 def poisson_parameters():
@@ -51,8 +49,13 @@ def normal_parameters():
             [diag_weight_std, off_weight_std, tau_std, bias_std, input_weight_std, shift_std]]
 
 
+def random_sgn():
+    return [-1, 1][np.random.randint(0, 2)]
+
+
 @dataclass(unsafe_hash=True)
 class Distribution:
+    """ Abstract/virtual type class, represents the probability of some parameter being initialized."""
 
     parameters: list = field(init=True)
 
@@ -64,9 +67,11 @@ class Distribution:
         for idx, conn in enumerate(connection_array):
             i, j = conn
             if i == j:
-                weights = np.append(weights, self.sample_other(0, 1))
+                weight = self.sample_other(1, 1)
             else:
-                weights = np.append(weights, self.sample_other(1, 1))
+                weight = self.sample_other(0, 1)
+
+            weights = np.append(weights, weight)
 
         return weights
 
@@ -76,6 +81,7 @@ class Distribution:
     def range(self, param_i):
         return abs(self.sample_other(param_i, 1) - self.sample_other(param_i, 1))
 
+    @staticmethod
     def get_type(self):
         return "virtual distribution"
 
@@ -128,7 +134,7 @@ class Poisson(Distribution):
         self.lambdas = self.parameters
 
     def sample_other(self, param_i, number_of):
-        return np.random.poisson(self.lambdas[param_i], number_of)
+        return random_sgn() * np.random.poisson(self.lambdas[param_i], number_of)
 
     def get_type(self):
         return "poisson"
@@ -140,11 +146,10 @@ class Normal(Distribution):
         self.std = self.parameters[1]
 
     def sample_other(self, param_i, number_of):
-        return np.random.normal(self.means[param_i], self.std[param_i], number_of)
+        return random_sgn() * np.random.normal(self.means[param_i], self.std[param_i], number_of)
 
     def range(self, param_i):
-        return self.means[param_i] + 3 * self.std[param_i]
+        return random_sgn() * (self.means[param_i] + 3 * self.std[param_i])
 
     def get_type(self):
         return "normal"
-

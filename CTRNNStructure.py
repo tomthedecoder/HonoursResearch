@@ -4,33 +4,42 @@ from OutputHandler import OutputHandler
 import numpy as np
 
 
-def line_topology(num_nodes):
-    """ Makes a connection array with the line topology"""
+def general_make_topology(num_nodes, rule):
+    """ General format for the creation of any toplogy"""
 
     connection_array = []
     for i in range(num_nodes):
         for j in range(num_nodes):
-            if j != i + 1:  #and i != j
+            if not rule(i, j):
                 continue
             tup = (i, j)
             connection_array.append(tup)
 
     return connection_array
+
+
+def weak_line_topology(num_nodes):
+    """ Makes a connection array with the line topology. No self connections"""
+
+    return general_make_topology(num_nodes, lambda i, j: j == i + 1)
+
+
+def strong_line_topology(num_nodes):
+    """Makes a connection array with the line topology except with self connections"""
+
+    return general_make_topology(num_nodes, lambda i, j: j == i + 1 and j == i)
+
+
+def fully_connected_topology(num_nodes):
+    """ All nodes share a connection, including with it's self"""
+
+    return general_make_topology(num_nodes, lambda i, j: True)
 
 
 def probabilistically_delete_off_diagonals(num_nodes, p):
     """ Easy way to make connection array, p1 is the probability of deleting an edge between i and j where i != j"""
 
-    connection_array = []
-    for i in range(num_nodes):
-        for j in range(num_nodes):
-            x = np.random.randint(0, 2)
-            if i != j and x > p:
-                continue
-            tup = (i, j)
-            connection_array.append(tup)
-
-    return connection_array
+    return general_make_topology(num_nodes, lambda i, j: i != j and np.random.randint(0, 2) > p)
 
 
 def apply_forcing_mask(num_nodes, forcing_signals, mask):
@@ -73,10 +82,24 @@ def first_node_mask(num_nodes, num_inputs):
     return general_make_mask(num_nodes, num_inputs, lambda i, num_nodes: i == 0)
 
 
+def n_node_mask(num_nodes, num_inputs, n):
+    """ input only on the first n nodes"""
+
+    assert n <= num_nodes
+
+    return general_make_mask(num_nodes, num_inputs, lambda i, num_nodes: i <= n - 1)
+
+
 def not_last_mask(num_nodes, num_inputs):
     """ Generates mask where the input of the last node is set to 0"""
 
     return general_make_mask(num_nodes, num_inputs, lambda i, num_nodes: i < num_nodes - 1)
+
+
+def non_mask(num_nodes, num_inputs):
+    """No inputs"""
+
+    return general_make_mask(num_nodes, num_inputs, lambda i, j: False)
 
 
 @dataclass(unsafe_hash=True)
@@ -93,10 +116,12 @@ class CTRNNStructure:
         # default topology is a fully connected circuit
         if len(self.connection_array) == 0:
             if self.connection_type == "default":
-                self.connection_array = [(i, j) for i in range(self.num_nodes) for j in range(self.num_nodes)]
-            elif self.connection_type == "line":
-                self.connection_array = line_topology(self.num_nodes)
+                self.connection_array = fully_connected_topology(self.num_nodes)
+            elif self.connection_type == "weak line":
+                self.connection_array = weak_line_topology(self.num_nodes)
+            elif self.connection_type == "strong line":
+                self.connection_array = strong_line_topology(self.num_nodes)
             elif self.connection_type == "prob_delete":
                 self.connection_array = probabilistically_delete_off_diagonals(self.num_nodes, p=0.25)
             else:
-                raise ValueError("connection type not regconised with connection array of length 0")
+                raise ValueError("connection type not recognised with connection array of length 0")
