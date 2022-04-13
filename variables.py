@@ -1,11 +1,21 @@
 from CTRNNStructure import *
-from Environment import *
+from Deme import *
 from OutputHandler import *
+from KuramotoParameters import *
+from KuramotoOscillator import *
+from KuramotoStructure import *
+from Network import *
 from genome_distribution import *
-from plot_all_neurons import plot_all_neurons
+from DemeContainer import *
+from RunHolder import *
+from TargetSignal import *
+from RunHolder import *
+from plot_all_neurons import plot_all_nodes
 from sys import stdout
 from time import time
 import matplotlib.pyplot as plt
+from DemeContainer import *
+import os
 import numpy as np
 import warnings
 
@@ -13,34 +23,38 @@ warnings.filterwarnings("error")
 np.seterr(over='warn')
 
 connectivity_array = None
-demes = []
 
 cross_over_probability = 0.6
-num_demes = 3
+num_demes = 4
 num_nodes = 4
-pop_size = 200
-mutation_chance = 0.9
-num_generations = 500
-num_runs = 4
-final_t = np.ceil(5 * np.pi)
+pop_size = 120
+num_generations = 10000
+num_runs = 1
+final_t = 2.65
+start_t = 0.8
 
-fitness_type = "simpsons"
+fitness_type = "1/simpsons"
 cross_over_type = "microbial"
 distribution_type = "uniform"
+network_types = ["kuramoto"]
 handler_type = "max/min"
 connection_type = "default"
-mask_type = "n node"
+mask_type = "no forcing"
 
-signals = [lambda t: 0]
+num_networks = len(network_types)
+
+signals = [lambda t: np.sin(t)]
 
 forcing_signals = make_signals(num_nodes, signals)
 if mask_type == "not last":
     forcing_signals = apply_forcing_mask(num_nodes, forcing_signals, not_last_mask(num_nodes, len(signals)))
 elif mask_type == "n node":
     forcing_signals = apply_forcing_mask(num_nodes, forcing_signals, n_node_mask(num_nodes, len(signals), 3))
+elif mask_type == "no forcing":
+    forcing_signals = apply_forcing_mask(num_nodes, forcing_signals, no_forcing(num_nodes, len(signals)))
 elif mask_type != "default":
     raise ValueError("Invalid mask type")
 
-lows, highs = uniform_parameters()
+lows, highs = ctrnn_uniform_parameters()
 lambdas = poisson_parameters()
 mus, stds = normal_parameters()

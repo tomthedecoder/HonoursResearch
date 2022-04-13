@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
-from Distribution import *
 
 
-def box_plot(environment):
+def box_plot(network_name, environment):
     """ Reads from the state file and displays a distribution of genomes"""
 
     num_nodes = environment.individuals[0].num_nodes
@@ -12,32 +11,53 @@ def box_plot(environment):
     biases_counts = []
     taus_counts = []
     input_weight_counts = []
+    natural_frequencies_counts = []
+    k_counts = []
 
     for individual in environment.individuals:
-        genome = individual.genome
+        genome = individual.params.genome
         for idx, gene in enumerate(genome):
-            # find proper count array
-            if idx <= num_weights-1:
-                weight_counts.append(gene)
-            elif idx <= num_weights + num_nodes-1:
-                taus_counts.append(gene)
-            elif idx <= num_weights + 2 * num_nodes-1:
-                biases_counts.append(gene)
-            else:
-                input_weight_counts.append(gene)
+            # find proper count array for network
+            if environment.network_type == "ctrnn":
+                if idx <= num_weights-1:
+                    weight_counts.append(gene)
+                elif idx <= num_weights + num_nodes-1:
+                    taus_counts.append(gene)
+                elif idx <= num_weights + 2 * num_nodes-1:
+                    biases_counts.append(gene)
+                else:
+                    input_weight_counts.append(gene)
+            elif environment.network_type == "kuramoto":
+                if idx < num_nodes:
+                    natural_frequencies_counts.append(gene)
+                elif idx < 2 * num_nodes:
+                    k_counts.append(gene)
 
-    fig1, axs1 = plt.subplots(2)
-    fig2, axs2 = plt.subplots(2)
+    if network_name == "ctrnn":
+        fig1, axs1 = plt.subplots(2, figsize=(12, 12), dpi=100)
+        fig2, axs2 = plt.subplots(2, figsize=(12, 12), dpi=100)
 
-    axs1[0].set_title("Weights")
-    axs1[1].set_title("Biases")
-    axs2[0].set_title("Taus")
-    axs2[1].set_title("Input Weights")
+        fig1.suptitle("CTRNN Parameters", fontsize=20)
 
-    axs1[0].boxplot(weight_counts, vert=False)
-    axs1[1].boxplot(biases_counts, vert=False)
-    axs2[0].boxplot(taus_counts, vert=False)
-    axs2[1].boxplot(input_weight_counts, vert=False)
+        axs1[0].set_title("Weights", fontsize=18)
+        axs1[1].set_title("Biases", fontsize=18)
+        axs2[0].set_title("Taus", fontsize=18)
+        axs2[1].set_title("Forcing Weights", fontsize=18)
+
+        axs1[0].boxplot(weight_counts, vert=False)
+        axs1[1].boxplot(biases_counts, vert=False)
+        axs2[0].boxplot(taus_counts, vert=False)
+        axs2[1].boxplot(input_weight_counts, vert=False)
+    elif network_name == "kuramoto":
+        fig1, axs1 = plt.subplots(2, figsize=(12, 12), dpi=100)
+
+        fig1.suptitle("Kuramoto Oscillator Parameters", fontsize=20)
+
+        axs1[0].set_title("Natural Frequencies", fontsize=18)
+        axs1[1].set_title("Coupling Strength", fontsize=18)
+
+        axs1[0].boxplot(natural_frequencies_counts, vert=False)
+        axs1[1].boxplot(k_counts, vert=False)
 
 
 def plot_distribution(environment):
@@ -119,7 +139,7 @@ def plot_distribution(environment):
 
 test = False
 if test:
-    from Environment import *
+    from Deme import *
 
-    environment = Environment.load_environment(1)
+    environment = Deme.load_deme(1)
     plot_distribution(environment)

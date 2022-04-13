@@ -1,19 +1,15 @@
 from dataclasses import dataclass
 from OutputHandler import OutputHandler
 from Weight import Weight
+from Parameters import *
 import numpy as np
 
 
-class CTRNNParameters:
+class CTRNNParameters(Parameters):
     def __init__(self, genome, output_handler, forcing_signals, connection_array):
-        self.genome = genome
-        self.output_handler = output_handler
-        self.forcing_signals = forcing_signals
+        """ Parameters for the CTRNN class"""
 
-        self.num_nodes = len(self.forcing_signals)
-        self.num_forcing = len(self.forcing_signals[0])
-        self.num_genes = len(self.genome)
-        self.num_weights = len(connection_array)
+        super(CTRNNParameters, self).__init__(genome, output_handler, forcing_signals, len(connection_array))
 
         self.weights = []
         for idx, weight in enumerate(self.genome[0:self.num_weights]):
@@ -44,3 +40,20 @@ class CTRNNParameters:
             self.forcing_weights[p // self.num_forcing][p // self.num_nodes] = new_value
         else:
             raise IndexError("Index exceeds number of parameter in CTRNN")
+
+        self.eval_valid = False
+
+    def __str__(self):
+        weights = [(weight.i, weight.j, weight.value) for weight in self.weights]
+        return f"weights: {weights}\ntaus: {self.taus}\nbiases: {self.biases}\nforcing weights: {self.forcing_weights}"
+
+    def copy(self):
+        """ Returns copy of instance"""
+
+        connection_array = []
+        for weight in self.weights:
+            connection_array.append((weight.i, weight.j))
+
+        genome = deep_copy(self.genome)
+
+        return CTRNNParameters(genome, self.output_handler, self.forcing_signals, connection_array)

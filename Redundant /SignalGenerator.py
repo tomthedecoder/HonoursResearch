@@ -1,4 +1,4 @@
-from Environment import Environment
+from Deme import Deme
 import os
 import numpy as np
 import wavio
@@ -15,7 +15,7 @@ class SignalGenerator:
         self.pop_size = 20
         self.environments_container = []
         for _ in range(num_environments):
-            self.environments_container.append((Environment(target_signal=None, pop_size=self.pop_size)))
+            self.environments_container.append((Deme(target_signal=None, pop_size=self.pop_size)))
 
         self.signal_duration = 2 * np.pi
         self.num_asked = 4

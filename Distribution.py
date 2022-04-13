@@ -2,7 +2,7 @@ import numpy as np
 from dataclasses import dataclass, field
 
 
-def uniform_parameters():
+def ctrnn_uniform_parameters():
     """ Returns lows and highs arrays for distribution class based off maximum values of parameters"""
 
     tau_low = 0.5
@@ -13,11 +13,20 @@ def uniform_parameters():
     diag_weight_high = 16
     off_weight_low = -16
     off_weight_high = 16
-    input_weight_low = -0.8
-    input_weight_high = 0.8
+    forcing_weight_low = -1.2
+    forcing_weight_high = 1.2
 
-    return [[diag_weight_low, off_weight_low, tau_low, bias_low, input_weight_low],
-            [diag_weight_high, off_weight_high, tau_high, bias_high, input_weight_high]]
+    return [[diag_weight_low, off_weight_low, tau_low, bias_low, forcing_weight_low],
+            [diag_weight_high, off_weight_high, tau_high, bias_high, forcing_weight_high]]
+
+
+def kuramoto_uniform_parameters():
+    natural_freq_low = 5
+    natural_freq_high = 50
+    k_low = 0.25
+    k_high = 5
+
+    return [[natural_freq_low, k_low], [natural_freq_high, k_high]]
 
 
 def poisson_parameters():
@@ -91,15 +100,18 @@ class Distribution:
 
         distribution_type = distribution_type.strip().lower()
 
-        if distribution_type == "uniform":
-            parameters = uniform_parameters()
+        if distribution_type == "ctrnn_uniform":
+            parameters = ctrnn_uniform_parameters()
             return Uniform(parameters)
-        elif distribution_type == "poisson":
+        elif distribution_type == "ctrnn_poisson":
             parameters = poisson_parameters()
             return Poisson(parameters)
-        elif distribution_type == "normal":
+        elif distribution_type == "ctrnn_normal":
             parameters = normal_parameters()
             return Normal(parameters)
+        elif distribution_type == "kuramoto_uniform":
+            parameters = kuramoto_uniform_parameters()
+            return Uniform(parameters)
         else:
             raise ValueError("Invalid distribution type")
 
