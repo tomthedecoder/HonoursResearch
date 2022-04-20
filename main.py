@@ -219,16 +219,16 @@ if __name__ == "__main__":
             plt.plot(generations, run_holder.best_fitness[ni][ri])
 
     i = 1
-    while os.path.exists(f"Results/run_result{i}"):
-        i += 1
-
     if not os.path.exists("Results"):
         os.mkdir("Results")
+    else:
+        while os.path.exists(f"Results/run_result{i}"):
+            i += 1
 
     with open(f"Results/run_result{i}", 'w+') as write_handle:
         write_handle.write(result_string)
 
-    plt.show()
+    plt.savefig(f'run_result{i}_plot.pdf')
 
 
 
