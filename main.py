@@ -79,12 +79,9 @@ if __name__ == "__main__":
 
         generation_start_time = time()
 
-        # the first layer of the algorithm is the meta-layer, repeats actual genetic algorithm num_run times
-
-        for run_i in range(num_runs):
-
+        # the first layer of the algorithm is the meta-layer, repeats actual genetic algorithm num_run time
+        def wrapper(run_i):
             # run a simulation of the genetic algorithm
-
             for gen_i in range(num_generations):
                 if gen_i % 100 == 0:
                     print(gen_i)
@@ -134,6 +131,10 @@ if __name__ == "__main__":
                 run_holder.best_fitness[net_i][run_i].append(run_holder.best_networks[net_i].last_fitness)
 
             stdout.write(f"{run_i+1} of {network_types[net_i]}\n")
+  
+        with Pool(50) as p:
+            p.map(wrapper, range(num_runs))
+
         generation_end_time = time()
         s = f"\nRun finished for the {network_types[net_i]} model finished, runtime is {generation_end_time - generation_start_time} seconds.\n"
         stdout.write(s)
@@ -229,13 +230,3 @@ if __name__ == "__main__":
         write_handle.write(result_string)
 
     plt.savefig(f'run_result{i}_plot.pdf')
-
-
-
-
-
-
-
-
-
-

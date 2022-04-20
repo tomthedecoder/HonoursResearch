@@ -18,6 +18,7 @@ from DemeContainer import *
 import os
 import numpy as np
 import warnings
+from multiprocessing import Pool
 
 warnings.filterwarnings("error")
 np.seterr(over='warn')
