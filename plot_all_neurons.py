@@ -53,3 +53,4 @@ def plot_all_nodes(network, final_t):
                 axs[node].grid()
         nodes_plotted += nodes_in_plot
 
+        plt.savefig(title)

@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from variables import *
 
 
@@ -207,6 +208,7 @@ if __name__ == "__main__":
     legend.append("Target Curve")
     plt.plot(times, target_signal(times))
     plt.legend(legend, fontsize=18)
+    plt.savefig("Target Curve And Network Outputs")
 
     if num_nodes > 0:
         for i, network in enumerate(network_types):
@@ -225,12 +227,14 @@ if __name__ == "__main__":
             plt.xlabel("Generation", fontsize=20)
             plt.ylabel("Fitness", fontsize=20)
             plt.plot(generations, run_holder.average_fitness[ni][ri][di])
+            plt.savefig(f"Average Fitness For {new_name}")
             plt.figure(figsize=(12, 12), dpi=100)
             plt.grid()
             plt.title(f"Best Fitness For {new_name}", fontsize=20)
             plt.xlabel("Generation", fontsize=20)
             plt.ylabel("Fitness", fontsize=20)
             plt.plot(generations, run_holder.best_fitness[ni][ri])
+            plt.savefig(f"Best Fitness For {new_name}")
 
     i = 1
     while os.path.exists(f"Results/run_result{i}"):
@@ -241,5 +245,3 @@ if __name__ == "__main__":
 
     with open(f"Results/run_result{i}", 'w+') as write_handle:
         write_handle.write(result_string)
-
-    plt.show()
