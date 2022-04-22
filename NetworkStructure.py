@@ -40,6 +40,11 @@ def probabilistically_delete_off_diagonals(num_nodes, p):
     return general_make_topology(num_nodes, lambda i, j: i != j and np.random.randint(0, 2) > p)
 
 
+class ZeroMap:
+    def __call__(self, *args):
+        return 0.0
+
+
 def apply_forcing_mask(num_nodes, forcing_signals, mask):
     """ Forcing signals is an array that contains the forcing signals for the CTRNN"""
 
@@ -47,7 +52,7 @@ def apply_forcing_mask(num_nodes, forcing_signals, mask):
 
     for i, row in enumerate(mask):
         for j, value in enumerate(row):
-            forcing_signals[i][j] = forcing_signals[i][j] if value == 1.0 else lambda t: 0.0
+            forcing_signals[i][j] = forcing_signals[i][j] if value == 1.0 else ZeroMap()
 
     return forcing_signals
 

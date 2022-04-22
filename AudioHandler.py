@@ -1,4 +1,3 @@
-import numpy as np
 from pydub import AudioSegment
 from OutputHandler import *
 from pydub.playback import play
@@ -22,7 +21,7 @@ class AudioHandler:
 
     def read_from_file(self, filename: str):
         self.note_name = filename[:filename.find(".")].strip()
-        self.sample_rate, self.data = wavfile.read(filename)
+        self.sample_rate, self.data = wavfile.read(f"{filename}")
 
         self.end = min(int(self.final_t * self.sample_rate), len(self.data) - 1)
         self.non_transient_start = min(int(self.start_t * self.sample_rate), len(self.data) - 1)

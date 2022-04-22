@@ -18,6 +18,7 @@ from DemeContainer import *
 import os
 import numpy as np
 import warnings
+import multiprocessing as mp
 
 warnings.filterwarnings("error")
 np.seterr(over='warn')
@@ -25,10 +26,10 @@ np.seterr(over='warn')
 connectivity_array = None
 
 cross_over_probability = 0.6
-num_demes = 4
-num_nodes = 4
-pop_size = 120
-num_generations = 10000
+num_demes = 1
+num_nodes = 2
+pop_size = 5
+num_generations = 1
 num_runs = 1
 final_t = 2.65
 start_t = 0.8

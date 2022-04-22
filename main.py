@@ -1,8 +1,49 @@
+from variables import *
+
+
+def ga_wrapper(run_holder, generation_average_fitness, *args):
+    """ A wrapper class for one generation/tournament of the genetic algorithm"""
+
+    deme_i = args[0]
+    deme = args[1]
+    net_i = args[2]
+    run_i = args[3]
+
+    # mutate individual, not the best one, then re-evaluate
+
+    deme.sink(deme.mutate(), final_t, fitness_type)
+
+    # rank based selection method, replace the weakest individual cross_over(...) -> new individual
+
+    deme.weakest_individual_reproduction(cross_over_type)
+
+    # re-evaluate
+
+    deme.sink(0, final_t, fitness_type)
+
+    # chance to perform inter-deme cross-over
+    # will place individual in correct location afterwards
+
+    if np.random.uniform(0, 1, 1) >= 1 - cross_over_probability:
+        D, i = run_holder.get_demes(net_i, run_i).genetic_drift(deme_i, final_t)
+        D.sink(i, final_t, fitness_type)
+
+    # determines best network out of all environments
+
+    if not run_holder.best_networks[net_i].last_fitness >= deme.individuals[-1].last_fitness:
+        run_holder.best_deme_ids[net_i] = deme_i
+        run_holder.best_demes[net_i] = deme
+        run_holder.best_networks[net_i] = deme.individuals[-1]
+        run_holder.best_runs[net_i] = run_i
+
+    # cumulative fitness across deme for this generation
+
+    for individual in deme.individuals:
+        generation_average_fitness[deme_i] += individual.last_fitness
+
 
 if __name__ == "__main__":
     """ Set up and run"""
-
-    from variables import *
 
     ####################
     # Initialize Demes #
@@ -86,45 +127,17 @@ if __name__ == "__main__":
             # run a simulation of the genetic algorithm
 
             for gen_i in range(num_generations):
-                if gen_i % 100 == 0:
-                    print(gen_i)
                 generation_average_fitness = [0.0 for _ in range(num_demes)]
 
-                # run algorithm on each deme
+                # a job for each deme
 
-                for deme_i, deme in enumerate(run_holder.get_demes(net_i, run_i)):
+                jobs = [mp.Process(target=ga_wrapper, args=(run_holder, generation_average_fitness, di, deme, net_i, run_i)) for di, deme in enumerate(run_holder.get_demes(net_i, run_i))]
 
-                    # mutate individual, not the best one, then re-evaluate
+                for proc in jobs:
+                    proc.start()
 
-                    deme.sink(deme.mutate(), final_t, fitness_type)
-
-                    # rank based selection method, replace the weakest individual cross_over(...) -> new individual
-
-                    deme.weakest_individual_reproduction(cross_over_type)
-
-                    # re-evaluate
-
-                    deme.sink(0, final_t, fitness_type)
-
-                    # chance to perform inter-deme cross-over
-                    # will place individual in correct location afterwards
-
-                    if np.random.uniform(0, 1, 1) >= 1 - cross_over_probability:
-                        D, i = run_holder.get_demes(net_i, run_i).genetic_drift(deme_i, final_t)
-                        D.sink(i, final_t, fitness_type)
-
-                    # determines best network out of all environments
-
-                    if not run_holder.best_networks[net_i].last_fitness >= deme.individuals[-1].last_fitness:
-                        run_holder.best_deme_ids[net_i] = deme_i
-                        run_holder.best_demes[net_i] = deme
-                        run_holder.best_networks[net_i] = deme.individuals[-1]
-                        run_holder.best_runs[net_i] = run_i
-
-                    # cumulative fitness across environment for this generation
-
-                    for individual in deme.individuals:
-                        generation_average_fitness[deme_i] += individual.last_fitness
+                for proc in jobs:
+                    proc.join()
 
                 # average the cumulative fitness
 
@@ -134,6 +147,7 @@ if __name__ == "__main__":
                 run_holder.best_fitness[net_i][run_i].append(run_holder.best_networks[net_i].last_fitness)
 
             stdout.write(f"{run_i+1} of {network_types[net_i]}\n")
+
         generation_end_time = time()
         s = f"\nRun finished for the {network_types[net_i]} model finished, runtime is {generation_end_time - generation_start_time} seconds.\n"
         stdout.write(s)
@@ -229,13 +243,3 @@ if __name__ == "__main__":
         write_handle.write(result_string)
 
     plt.show()
-
-
-
-
-
-
-
-
-
-
