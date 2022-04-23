@@ -34,7 +34,7 @@ num_runs = 1
 final_t = 2.65
 start_t = 0.8
 
-fitness_type = "1/simpsons"
+fitness_type = "simpsons"
 cross_over_type = "microbial"
 distribution_type = "uniform"
 network_types = ["kuramoto"]
