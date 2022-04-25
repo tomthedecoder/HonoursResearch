@@ -195,7 +195,8 @@ class Deme:
     def fit_prop_selection(self, cross_over_type: str):
         """ A generational method, selects with a probability proportional to the fitness value"""
 
-        pass
+        selection_probabilities = [individual.last_fitness / self.sum_of_fitness for individual in self.individuals]
+
 
     def copy(self):
         copied_individuals = [individual.copy() for individual in self.individuals]
