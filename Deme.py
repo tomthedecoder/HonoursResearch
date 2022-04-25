@@ -20,6 +20,9 @@ class Deme:
         self.network_type = network_type
         self.individuals = []
         self.target_signal = target_signal
+
+        self.sum_of_fitness = 0
+
         self.mutation_std = 0.2
         self.mutation_mean = 0
 
@@ -94,16 +97,25 @@ class Deme:
 
         return index
 
-    def rank(self, final_t, fitness_type):
+    def update_fitness(self, final_t: float, fitness_type: str, individual: Individual):
+        """ Updates the fitness value of some individual"""
+
+        assert hasattr(individual, 'evaluate')
+
+        times, y_output = individual.evaluate(final_t)
+
+        self.sum_of_fitness -= individual.last_fitness
+        individual.last_fitness = individual.fitness(self.target_signal, times, y_output, fitness_type)
+        self.sum_of_fitness += individual.last_fitness
+
+    def rank(self, final_t: float, fitness_type: str):
         """ Assign rank between 0 and 2 to each individual in the environment and sort the individual array, with the
             highest ranked individuals at the end of the array."""
 
         # assess fitness levels, assign true fitness
         for idx, individual in enumerate(self.individuals):
             if not individual.params.eval_valid:
-                times, y_output = individual.evaluate(final_t)
-
-                self.individuals[idx].last_fitness = individual.fitness(self.target_signal, times, y_output, fitness_type)
+                self.update_fitness(final_t, fitness_type, individual)
 
         # sort individuals
         self.individuals = sorted(self.individuals, key=lambda i: i.last_fitness, reverse=False)
@@ -127,10 +139,9 @@ class Deme:
 
         # make sure the individual to sink has valid fitness value
 
-        times, y_output = self.individuals[individual_i].evaluate(final_t)
-        self.individuals[individual_i].fitness(self.target_signal, times, y_output, fitness_type)
-
         i = individual_i
+        self.update_fitness(final_t, fitness_type, self.individuals[i])
+
         while not in_order(i, self.individuals):
 
             # assume one side is ordered
@@ -180,6 +191,11 @@ class Deme:
 
         self.individuals[0] = best_individual.cross_over(weakest_individual, cross_over_type, 0.6)
         self.individuals[0].params.eval_valid = False
+
+    def fit_prop_selection(self, cross_over_type: str):
+        """ A generational method, selects with a probability proportional to the fitness value"""
+
+        pass
 
     def copy(self):
         copied_individuals = [individual.copy() for individual in self.individuals]

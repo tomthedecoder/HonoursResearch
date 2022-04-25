@@ -15,6 +15,7 @@ from sys import stdout
 from time import time
 import matplotlib.pyplot as plt
 from DemeContainer import *
+from fix_fitness_plot import fix_fitness_plot
 import os
 import numpy as np
 import warnings
@@ -27,14 +28,14 @@ connectivity_array = None
 
 cross_over_probability = 0.6
 num_demes = 1
-num_nodes = 2
-pop_size = 5
-num_generations = 5
+num_nodes = 1
+pop_size = 50
+num_generations = 20
 num_runs = 1
 final_t = 2.65
 start_t = 0.8
 
-fitness_type = "simpsons"
+fitness_type = "1/simpsons"
 cross_over_type = "microbial"
 distribution_type = "uniform"
 network_types = ["kuramoto"]

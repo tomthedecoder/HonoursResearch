@@ -1,48 +1,6 @@
 import matplotlib.pyplot as plt
 from variables import *
 
-
-def ga_wrapper(run_holder, generation_average_fitness, *args):
-    """ A wrapper class for one generation/tournament of the genetic algorithm"""
-
-    deme_i = args[0]
-    deme = args[1]
-    net_i = args[2]
-    run_i = args[3]
-
-    # mutate individual, not the best one, then re-evaluate
-
-    deme.sink(deme.mutate(), final_t, fitness_type)
-
-    # rank based selection method, replace the weakest individual cross_over(...) -> new individual
-
-    deme.weakest_individual_reproduction(cross_over_type)
-
-    # re-evaluate
-
-    deme.sink(0, final_t, fitness_type)
-
-    # chance to perform inter-deme cross-over
-    # will place individual in correct location afterwards
-
-    if np.random.uniform(0, 1, 1) >= 1 - cross_over_probability:
-        D, i = run_holder.get_demes(net_i, run_i).genetic_drift(deme_i, final_t)
-        D.sink(i, final_t, fitness_type)
-
-    # determines best network out of all environments
-
-    if not run_holder.best_networks[net_i].last_fitness >= deme.individuals[-1].last_fitness:
-        run_holder.best_deme_ids[net_i] = deme_i
-        run_holder.best_demes[net_i] = deme
-        run_holder.best_networks[net_i] = deme.individuals[-1]
-        run_holder.best_runs[net_i] = run_i
-
-    # cumulative fitness across deme for this generation
-
-    for individual in deme.individuals:
-        generation_average_fitness[deme_i] += individual.last_fitness
-
-
 if __name__ == "__main__":
     """ Set up and run"""
 
@@ -53,7 +11,7 @@ if __name__ == "__main__":
     run_holder = RunHolder(num_demes, num_runs, num_networks, cross_over_type, fitness_type)
     target_signal = TargetSignal(start_t, final_t, 'audio', lambda t: np.sin(2 * t))
     result_string = ''
-
+    #mp.managers.BaseManager.register()
     load = False
     if load:
 
@@ -128,17 +86,42 @@ if __name__ == "__main__":
             # run a simulation of the genetic algorithm
 
             for gen_i in range(num_generations):
-                generation_average_fitness = [0.0 for _ in range(num_demes)]
+                generation_average_fitness = mp.Array('d', [0.0 for _ in range(num_demes)])
 
-                # a job for each deme
+                for di, deme in enumerate(run_holder.get_demes(net_i, run_i)):
+                    """ A wrapper class for one generation/tournament of the genetic algorithm"""
 
-                jobs = [mp.Process(target=ga_wrapper, args=(run_holder, generation_average_fitness, di, deme, net_i, run_i)) for di, deme in enumerate(run_holder.get_demes(net_i, run_i))]
+                    # mutate individual, not the best one, then re-evaluate
 
-                for proc in jobs:
-                    proc.start()
+                    deme.sink(deme.mutate(), final_t, fitness_type)
 
-                for proc in jobs:
-                    proc.join()
+                    # rank based selection method, replace the weakest individual cross_over(...) -> new individual
+
+                    deme.weakest_individual_reproduction(cross_over_type)
+
+                    # re-evaluate
+
+                    deme.sink(0, final_t, fitness_type)
+
+                    # chance to perform inter-deme cross-over
+                    # will place individual in correct location afterwards
+
+                    if np.random.uniform(0, 1, 1) >= 1 - cross_over_probability:
+                        D, i = run_holder.get_demes(net_i, run_i).genetic_drift(di, final_t)
+                        D.sink(i, final_t, fitness_type)
+
+                    # determines best network out of all environments
+
+                    if not run_holder.best_networks[net_i].last_fitness >= deme.individuals[-1].last_fitness:
+                        run_holder.best_deme_ids[net_i] = di
+                        run_holder.best_demes[net_i] = deme
+                        run_holder.best_networks[net_i] = deme.individuals[-1]
+                        run_holder.best_runs[net_i] = run_i
+
+                    # cumulative fitness across deme for this generation
+
+                    for individual in deme.individuals:
+                        generation_average_fitness[di] += individual.last_fitness
 
                 # average the cumulative fitness
 
@@ -216,24 +199,33 @@ if __name__ == "__main__":
 
     # fitness plots for each network
     if num_generations > 2:
-        generations = range(num_generations)
         for ni, network in enumerate(network_types):
             di = run_holder.best_deme_ids[ni]
             ri = run_holder.best_runs[ni]
-            new_name = "Kuramoto Oscillator" if network == "kuramoto" else "CTRNN"
+            new_name = "Kuramoto Model" if network == "kuramoto" else "CTRNN"
+
+            # average fitness
+
+            generations, average_fitnesses = fix_fitness_plot(run_holder.average_fitness[ni][ri][di])
+
             plt.figure(figsize=(12, 12), dpi=100)
-            plt.grid()
+            plt.xticks(np.arange(0, num_generations, step=1))
             plt.title(f"Average Fitness For {new_name}", fontsize=20)
             plt.xlabel("Generation", fontsize=20)
             plt.ylabel("Fitness", fontsize=20)
-            plt.plot(generations, run_holder.average_fitness[ni][ri][di])
+            plt.plot(generations, average_fitnesses)
             plt.savefig(f"Average Fitness For {new_name}")
+
+            # best fitness
+
+            generations, best_fitnesses = fix_fitness_plot(run_holder.best_fitness[ni][ri])
+
             plt.figure(figsize=(12, 12), dpi=100)
-            plt.grid()
+            plt.xticks(np.arange(0, num_generations, step=1))
             plt.title(f"Best Fitness For {new_name}", fontsize=20)
             plt.xlabel("Generation", fontsize=20)
             plt.ylabel("Fitness", fontsize=20)
-            plt.plot(generations, run_holder.best_fitness[ni][ri])
+            plt.plot(generations, best_fitnesses)
             plt.savefig(f"Best Fitness For {new_name}")
 
     i = 1
