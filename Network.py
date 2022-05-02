@@ -15,21 +15,21 @@ class Network:
 
         self.node_values = np.array(np.zeros(self.num_nodes), dtype=np.float32)
         self.derivatives = np.array(np.zeros(self.num_nodes), dtype=np.float32)
-        self.forcing = np.array([np.float(0.0) for _ in range(self.num_nodes)])
+        self.forcing = np.array([0.0 for _ in range(self.num_nodes)])
         self.node_history = [[] for _ in range(self.num_nodes)]
         self.eval_times = []
 
-        self.step_size = np.float(0.001)
-        self.last_time = np.float(0.0)
+        self.step_size = 0.001
+        self.last_time = 0.0
 
     def reset(self):
         """ Sets node values, derivatives, last_time and forcing term are set to 0."""
 
-        self.node_values = np.array([np.float(0.0) for _ in range(self.num_nodes)])
-        self.derivatives = np.array([np.float(0.0) for _ in range(self.num_nodes)])
+        self.node_values = np.array([0.0 for _ in range(self.num_nodes)])
+        self.derivatives = np.array([0.0 for _ in range(self.num_nodes)])
         self.node_history = [[] for _ in range(self.num_nodes)]
         self.params.eval_valid = False
-        self.last_time = np.float(0.0)
+        self.last_time = 0.0
 
     def set_forcing(self, t):
         """ Compute total input going to each neuron"""

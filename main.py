@@ -1,6 +1,23 @@
 import matplotlib.pyplot as plt
 from variables import *
 
+
+def highest_named(filename: str, extension='png', repo=False):
+    """ Returns non-duplicate filename"""
+
+    if not repo:
+        repo = os.path.curdir
+
+    i = 0
+    while os.path.exists(f"{repo}/{filename}{i}.{extension}") if i != 0 else os.path.exists(f"{repo}/{filename}.{extension}"):
+        i += 1
+
+    if i == 0:
+        return filename
+    else:
+        return f"{filename}{i}"
+
+
 if __name__ == "__main__":
     """ Set up and run"""
 
@@ -11,7 +28,7 @@ if __name__ == "__main__":
     run_holder = RunHolder(num_demes, num_runs, num_networks, cross_over_type, fitness_type)
     target_signal = TargetSignal(start_t, final_t, 'audio', lambda t: np.sin(2 * t))
     result_string = ''
-    #mp.managers.BaseManager.register()
+
     load = False
     if load:
 
@@ -191,7 +208,7 @@ if __name__ == "__main__":
     legend.append("Target Curve")
     plt.plot(times, target_signal(times))
     plt.legend(legend, fontsize=18)
-    plt.savefig("Target Curve And Network Outputs")
+    plt.savefig(highest_named("Target Curve And Network Outputs"))
 
     if num_nodes > 0:
         for i, network in enumerate(network_types):
@@ -214,7 +231,7 @@ if __name__ == "__main__":
             plt.xlabel("Generation", fontsize=20)
             plt.ylabel("Fitness", fontsize=20)
             plt.plot(generations, average_fitnesses)
-            plt.savefig(f"Average Fitness For {new_name}")
+            plt.savefig(highest_named(f"Average Fitness For {new_name}"))
 
             # best fitness
 
@@ -226,7 +243,7 @@ if __name__ == "__main__":
             plt.xlabel("Generation", fontsize=20)
             plt.ylabel("Fitness", fontsize=20)
             plt.plot(generations, best_fitnesses)
-            plt.savefig(f"Best Fitness For {new_name}")
+            plt.savefig(highest_named(f"Best Fitness For {new_name}"))
 
     i = 1
     while os.path.exists(f"Results/run_result{i}"):

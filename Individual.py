@@ -140,7 +140,7 @@ class Individual:
         for idx, value in enumerate(y_output):
             y_abs.append(abs(value - y_target[idx]))
 
-        return -np.float(sci.simpson(y=y_abs, x=times))
+        return -sci.simpson(y=y_abs, x=times)
 
     @property
     def rank(self):
